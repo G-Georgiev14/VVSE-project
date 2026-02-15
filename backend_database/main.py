@@ -3,8 +3,9 @@ import os
 from fastapi import FastAPI, Depends, HTTPException, Body
 from sqlalchemy import exists, and_
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from typing import List
+import uuid
 from fastapi.middleware.cors import CORSMiddleware
 
 import database
@@ -16,6 +17,12 @@ class BlockSchema(BaseModel):
     z: int
     block_name: str
     block_state: str
+
+class UserCreate(BaseModel):
+    username: str
+    email: str
+    password: str
+    minecraft_username: str
 
 app = FastAPI()
 
@@ -37,22 +44,33 @@ def get_database():
     finally:
         db.close()
 
-@app.post("/users/{username}")
-def create_user(username: str, 
-                email: str, 
-                password: str, 
-                minecraft_username: str,
-                uuid: str,
+@app.post("/users")
+def create_user(user_data: UserCreate,
                 db: Session = Depends(get_database)):
 
-    user = models.User(username=username,
-                    email=email,
-                    password=password,
-                    minecraft_username=minecraft_username,
-                    uuid = uuid)
+    existing_user = db.query(models.User).filter(
+        (models.User.username == user_data.username) |
+        (models.User.email == user_data.email)
+    ).first()
+    
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Username or Email already exist")
+    
+    new_uuid = str(uuid.uuid4())
+
+    user = models.User(
+        username=user_data.username,
+        email=user_data.email,
+        password=user_data.password, 
+        minecraft_username=user_data.minecraft_username,
+        uuid=new_uuid
+    )
+
     db.add(user)
     db.commit()
-    return {"message": f"User {username} created"}
+    db.refresh(user)
+
+    return {"status": "success", "username": user.username, "uuid": user.uuid}
 
 @app.post("/users/{username}/{repo_name}/commit")
 def create_commit(username: str,
@@ -133,23 +151,24 @@ def get_log(username: str, repo_name: str):
 @app.get("/users/exists")
 def check_user_exists(username: str,
                       email: str,
-                      minecraft_username: str,
                       db: Session = Depends(get_database)):
+    
     user_name_exists = db.query(exists().where(models.User.username == username)).scalar()
+
     if user_name_exists:
-        return {"exists name": user_name_exists}
+        return {"name": True}
+    
     user_email_exists = db.query(exists().where(models.User.email == email)).scalar()
     if user_email_exists:
-        return {"exists email": user_email_exists}
-    user_minecraft_name_exists = db.query(exists().where(models.User.minecraft_username == minecraft_username)).scalar()
-    if user_minecraft_name_exists:
-        return {"exists name": user_minecraft_name_exists}
+        return {"email": True}
+
+    return{"exists": False}
 
 @app.get("/users/uuid")
 def check_for_valid_uuid(uuid: str, db: Session = Depends(get_database)):
-    uuid_exists = db.query(exists().where(models.User.uuid == uuid)).scalar()
 
-    return {"exists": uuid_exists}
+    return db.query(exists().where(models.User.uuid == uuid)).scalar()
+
 
 if __name__ == "__main__":
 

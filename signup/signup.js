@@ -1,4 +1,4 @@
-import { validateInput, rules } from './checks.js';
+import { validateInput, rules, checkUserExists, createUser } from './checks.js';
 
 const signup_btn = document.getElementById('signup');
 signup_btn.addEventListener('click', start_signup);
@@ -6,55 +6,42 @@ signup_btn.addEventListener('click', start_signup);
 validateInput('email', rules.email, 'emailError', 'Invalid email format.');
 validateInput('username', rules.username, 'usernameError', 'Invalid username format.');
 validateInput('password', rules.password, 'passwordError', 'Invalid password format.');
-validateInput('minecraftUsername', rules.minecraftUsername, 
-              'minecraftUsernameError', 'Invalid minecarft username format.');
+validateInput('mcUsername', rules.minecraftUsername, 
+              'mcUsernameError', 'Invalid minecarft username format.');
 
-function start_signup(){
+async function start_signup(){
   const emailInput = document.getElementById('email');
   const usernameInput = document.getElementById('username');
   const passwordInput = document.getElementById('password');
-  const minecraftUsernameInput = document.getElementById('minecraftUsername');
+  const mcUsernameInput = document.getElementById('mcUsername');
 
-  // Validate all inputs on button click
-  const isEmailValid = emailInput.validateOnClick();
-  const isUsernameValid = usernameInput.validateOnClick();
-  const isPasswordValid = passwordInput.validateOnClick();
-  const isMinecraftUsernameValid = minecraftUsernameInput.validateOnClick();
+  if(emailInput.validateOnClick() && usernameInput.validateOnClick() &&
+     passwordInput.validateOnClick() && mcUsernameInput.validateOnClick()){
 
-  // Only proceed if all inputs are valid
-  if (isEmailValid && isUsernameValid && isPasswordValid && isMinecraftUsernameValid) {
-    const email = emailInput.value;
-    const username = usernameInput.value;
-    const password = passwordInput.value;
-    const minecraft_username = minecraftUsernameInput.value;
+      const userExistsData = await checkUserExists(emailInput.value, usernameInput.value);
 
-    // Unfinished
+      if (userExistsData && (userExistsData.name || userExistsData.email)) {
+      showErrorMessage('User with this username or email already exists!');
+      return;
+    }
 
-  //   if (userExists) {
-  //     showErrorMessage('User with this username or email already exists!');
-  //     return;
-  //   }
+    const result = await createUser(
+      usernameInput.value,
+      emailInput.value,
+      passwordInput.value,
+      mcUsernameInput.value
+    );
+
+    if(result){
+      console.log('User signed up successfully:', username);
+      showSuccessMessage('Account created successfully! You can now login.');
     
-  //   // Add new user
-  //   const newUser = {
-  //     email,
-  //     username,
-  //     password,
-  //     minecraft_username
-  //   };
-    
-    users.push(newUser);
-    localStorage.setItem('minecraftUsers', JSON.stringify(users));
-    
-    console.log('User signed up successfully:', username);
-    showSuccessMessage('Account created successfully! You can now login.');
-    
-    // Clear form
-    emailInput.value = '';
-    usernameInput.value = '';
-    passwordInput.value = '';
-    minecraftUsernameInput.value = '';
-    
+      // Clear form
+      emailInput.value = '';
+      usernameInput.value = '';
+      passwordInput.value = '';
+      mcUsernameInput.value = '';
+    }
   }
 }
 

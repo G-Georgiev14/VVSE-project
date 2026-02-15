@@ -1,3 +1,5 @@
+const API_BASE_URL = "http://127.0.0.1:8000";
+
 export const rules = {
   email: /^[a-zA-Z0-9._]+@[a-zA-Z-]+.[a-zA-Z]{2,}$/,
   username: /^[a-zA-Z0-9]{3,16}$/,
@@ -49,6 +51,49 @@ export function validateInput(id, regex, errorId, errorMsg){
   };
 }
 
-export function check_user_exists(email, username, minecraft_username){
-    
+export async function checkUserExists(email, username){
+    const url = `${API_BASE_URL}/users/exists?username=${encodeURIComponent(username)}&email=${encodeURIComponent(email)}`;
+
+    const response = await fetch(url);
+    if (!response.ok){
+      console.error("Server error during existence check");
+      return null;
+    }
+    return await response.json();
 }
+
+async function checkUuidExixst(uuid) {
+  const url = `${API_BASE_URL}/users/uuid?uuid=${uuid}`
+  const response = await fetch(url);
+  return await(response).json();
+
+}
+
+export async function createUser(username, email, password, mcUsername){
+  const url = `${API_BASE_URL}/users`;
+
+  const userData = {
+    username: username,
+    email: email,
+    password: password,
+    minecraft_username: mcUsername
+  };
+
+  const response = await fetch(url,{
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(userData)
+  });
+
+  if(!response.ok){
+    const errorData = await response.json();
+    console.error("Signup failed:", errorData.detail);
+    return null;
+  }
+
+  return await response.json()
+}
+
+
