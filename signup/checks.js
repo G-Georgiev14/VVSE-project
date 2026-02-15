@@ -50,5 +50,5 @@ export function validateInput(id, regex, errorId, errorMsg){
 }
 
 export function check_user_exists(email, username, minecraft_username){
-    return 0;
+    
 }

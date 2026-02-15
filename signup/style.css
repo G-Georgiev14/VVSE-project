@@ -1482,7 +1482,7 @@ body {
 
 .block-1::before {
     /* PASTE YOUR BASE64 IMAGE HERE */
-    background-image: url('/grass.jpg');
+    background-image: url('./images/grass.jpg');
     background-size: cover;
     background-position: center;
 }
@@ -1498,7 +1498,7 @@ body {
 }
 
 .block-2::before {
-    background-image: url('/cobblestone.jpg');  
+    background-image: url('./images/cobblestone.jpg');  
     background-size: cover;
     background-position: center;
 }
@@ -1514,7 +1514,7 @@ body {
 }
 
 .block-3::before {
-    background-image: url('/oak.jpg');
+    background-image: url('./images/oak.jpg');
     background-size: cover;
     background-position: center;
 }
@@ -1530,7 +1530,7 @@ body {
 }
 
 .block-4::before {
-    background-image: url('/furnace_gif.gif');
+    background-image: url('./images/furnace_gif.gif');
     background-size: cover;
     background-position: center;
 }
@@ -1546,7 +1546,7 @@ body {
 }
 
 .block-5::before {
-    background-image: url('/diamond.jpg');
+    background-image: url('./images/diamond.jpg');
     background-size: cover;
     background-position: center;
 }
@@ -1562,7 +1562,7 @@ body {
 }
 
 .block-6::before {
-    background-image: url('/kniga.gif');
+    background-image: url('./images/kniga.gif');
     background-size: cover;
     background-position: center;
 }

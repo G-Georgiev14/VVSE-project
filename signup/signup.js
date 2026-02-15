@@ -28,25 +28,20 @@ function start_signup(){
     const password = passwordInput.value;
     const minecraft_username = minecraftUsernameInput.value;
 
-    // Store user in localStorage
-    const users = JSON.parse(localStorage.getItem('minecraftUsers') || '[]');
+    // Unfinished
+
+  //   if (userExists) {
+  //     showErrorMessage('User with this username or email already exists!');
+  //     return;
+  //   }
     
-    // Check if user already exists
-    const userExists = users.some(user => user.username === username || user.email === email);
-    
-    if (userExists) {
-      showErrorMessage('User with this username or email already exists!');
-      return;
-    }
-    
-    // Add new user
-    const newUser = {
-      email,
-      username,
-      password,
-      minecraft_username,
-      createdAt: new Date().toISOString()
-    };
+  //   // Add new user
+  //   const newUser = {
+  //     email,
+  //     username,
+  //     password,
+  //     minecraft_username
+  //   };
     
     users.push(newUser);
     localStorage.setItem('minecraftUsers', JSON.stringify(users));
@@ -60,8 +55,6 @@ function start_signup(){
     passwordInput.value = '';
     minecraftUsernameInput.value = '';
     
-  } else {
-    console.log('Form has validation errors');
   }
 }
 
