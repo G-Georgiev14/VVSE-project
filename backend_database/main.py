@@ -187,9 +187,9 @@ def login(request: LoginRequest, db: Session = Depends(get_database)):
 
 @app.get("/users/uuid")
 def check_for_valid_uuid(uuid: str, db: Session = Depends(get_database)):
-
-    return db.query(exists().where(models.User.uuid == uuid)).scalar()
-
+    exists = db.query(exists().where(models.User.uuid == uuid)).scalar()
+    return exists
+    
 
 if __name__ == "__main__":
 

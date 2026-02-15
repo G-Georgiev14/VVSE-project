@@ -36,7 +36,7 @@ async function start_signup(){
       mcUsernameInput.value
     );
 
-    if(result){
+    if(result && !result.error){
       console.log('User signed up successfully:', result.username);
       showSuccessMessage('Account created successfully! Redirecting to homepage...');
       
@@ -47,7 +47,7 @@ async function start_signup(){
       
       // Redirect to homepage after a short delay
       setTimeout(() => {
-        window.location.href = '../homepage/homepage.html';
+        window.location.href = "../login.html";
       }, 1500);
     }
   }

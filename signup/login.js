@@ -22,6 +22,7 @@ async function start_login(){
 
     if (result && !result.error){
       console.log('Login successful for user:', result.username);
+      console.log('Login result:', result);
       showLoginSuccessMessage(`Login successful! Welcome back, ${result.minecraft_username}!`);
       
       // Store authentication data
@@ -29,9 +30,15 @@ async function start_login(){
       localStorage.setItem('username', result.username);
       localStorage.setItem('minecraftUsername', result.minecraft_username);
       
+      console.log('Stored auth data:', {
+        token: result.uuid,
+        username: result.username
+      });
+      
       // Redirect to homepage after a short delay
       setTimeout(() => {
-        window.location.href = './VVSE-project/homepage/homepage.html'
+        console.log('Redirecting to homepage...');
+        window.location.href = '/homepage/homepage.html'
       }, 1500);
     }
     else{
