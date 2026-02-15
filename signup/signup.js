@@ -37,14 +37,18 @@ async function start_signup(){
     );
 
     if(result){
-      console.log('User signed up successfully:', username);
-      showSuccessMessage('Account created successfully! You can now login.');
-    
-      // Clear form
-      emailInput.value = '';
-      usernameInput.value = '';
-      passwordInput.value = '';
-      mcUsernameInput.value = '';
+      console.log('User signed up successfully:', result.username);
+      showSuccessMessage('Account created successfully! Redirecting to homepage...');
+      
+      // Store authentication data
+      localStorage.setItem('authToken', result.uuid);
+      localStorage.setItem('username', result.username);
+      localStorage.setItem('minecraftUsername', result.minecraft_username);
+      
+      // Redirect to homepage after a short delay
+      setTimeout(() => {
+        window.location.href = '../homepage/homepage.html';
+      }, 1500);
     }
   }
 }

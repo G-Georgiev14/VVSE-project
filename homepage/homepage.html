@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MinecraftHub - G-Georgiev14</title>
+    <link rel="stylesheet" href="homepage.css">
+    <link href="https://fonts.cdnfonts.com/css/minecraft-4" rel="stylesheet">
+</head>
+<body>
+    <div class="github-container">
+        <!-- Header Navigation -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <img src="../signup/images/GITBUILD-2-15-2026.png" alt="GITBUILD" class="logo-image">
+                </div>
+                <nav class="main-nav">
+                    <a href="#" class="nav-item active">Overview</a>
+                    <a href="#" class="nav-item">Repositories</a>
+                    <a href="#" class="nav-item">Projects</a>
+                    <a href="#" class="nav-item">Packages</a>
+                    <a href="#" class="nav-item">Stars</a>
+                </nav>
+                <div class="header-actions">
+                    <button class="new-repo-btn">+ New repository</button>
+                    <div class="profile-menu">
+                        <img src="https://picsum.photos/seed/minecraft/32/32.jpg" alt="Profile" class="profile-avatar">
+                        <span>▼</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <!-- Profile Sidebar -->
+            <aside class="profile-sidebar">
+                <div class="profile-card">
+                    <div class="profile-avatar-large">
+                        <img src="https://picsum.photos/seed/minecraft/280/280.jpg" alt="Profile" class="avatar-image">
+                    </div>
+                    <h1 class="username">G-Georgiev14</h1>
+                    <button class="edit-profile-btn">Edit profile</button>
+                    
+                    <div class="profile-stats">
+                        <div class="stat-item">
+                            <strong class="stat-number">0</strong>
+                            <span class="stat-label">Followers</span>
+                        </div>
+                        <div class="stat-item">
+                            <strong class="stat-number">0</strong>
+                            <span class="stat-label">Following</span>
+                        </div>
+                    </div>
+                    
+                    <div class="achievements-section">
+                        <div class="achievements-header">
+                            <span class="achievements-icon">🏆</span>
+                            <span>Achievements</span>
+                        </div>
+                        <div class="achievements-grid">
+                            <div class="achievement-badge" title="First Commit">🎯</div>
+                            <div class="achievement-badge locked" title="Locked">🔒</div>
+                            <div class="achievement-badge locked" title="Locked">🔒</div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Content Area -->
+            <main class="content-area">
+                <!-- Popular Repositories -->
+                <section class="repositories-section">
+                    <div class="section-header">
+                        <h2>Popular repositories</h2>
+                        <button class="customize-btn">Customize pins</button>
+                    </div>
+                    
+                    <div class="repositories-grid" id="repositoriesGrid">
+                        <!-- Repositories will be loaded here dynamically -->
+                        <div class="repository-card">
+                            <div class="repo-header">
+                                <h3 class="repo-name">
+                                    <a href="#">castle-build</a>
+                                </h3>
+                                <span class="repo-visibility">Public</span>
+                            </div>
+                            <div class="repo-description">
+                                Medieval castle with towers and moat
+                            </div>
+                            <div class="repo-meta">
+                                <span class="repo-language">
+                                    <span class="language-dot minecraft"></span>
+                                    Minecraft
+                                </span>
+                                <span class="repo-updated">Updated 2 hours ago</span>
+                            </div>
+                        </div>
+
+                        <div class="repository-card">
+                            <div class="repo-header">
+                                <h3 class="repo-name">
+                                    <a href="#">modern-house</a>
+                                </h3>
+                                <span class="repo-visibility">Public</span>
+                            </div>
+                            <div class="repo-description">
+                                Modern architectural house design
+                            </div>
+                            <div class="repo-meta">
+                                <span class="repo-language">
+                                    <span class="language-dot minecraft"></span>
+                                    Minecraft
+                                </span>
+                                <span class="repo-updated">Updated 1 day ago</span>
+                            </div>
+                        </div>
+
+                        <div class="repository-card">
+                            <div class="repo-header">
+                                <h3 class="repo-name">
+                                    <a href="#">redstone-circuit</a>
+                                </h3>
+                                <span class="repo-visibility">Public</span>
+                            </div>
+                            <div class="repo-description">
+                                Complex redstone logic gates and circuits
+                            </div>
+                            <div class="repo-meta">
+                                <span class="repo-language">
+                                    <span class="language-dot redstone"></span>
+                                    Redstone
+                                </span>
+                                <span class="repo-updated">Updated 3 days ago</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Empty State -->
+                <div class="empty-state" id="emptyState" style="display: none;">
+                    <div class="empty-icon">📦</div>
+                    <h3>No repositories yet</h3>
+                    <p>Create your first repository to start sharing your Minecraft builds!</p>
+                    <button class="create-repo-btn">Create repository</button>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="homepage.js"></script>
+</body>
+</html>

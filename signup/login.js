@@ -23,7 +23,16 @@ async function start_login(){
     if (result && !result.error){
       console.log('Login successful for user:', result.username);
       showLoginSuccessMessage(`Login successful! Welcome back, ${result.minecraft_username}!`);
-      localStorage.setItem('currentUser', JSON.stringify(result));
+      
+      // Store authentication data
+      localStorage.setItem('authToken', result.uuid);
+      localStorage.setItem('username', result.username);
+      localStorage.setItem('minecraftUsername', result.minecraft_username);
+      
+      // Redirect to homepage after a short delay
+      setTimeout(() => {
+        window.location.href = './VVSE-project/homepage/homepage.html'
+      }, 1500);
     }
     else{
       showLoginErrorMessage(result.error || 'Invalid username ro password.');

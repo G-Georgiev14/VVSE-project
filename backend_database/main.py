@@ -74,7 +74,7 @@ def create_user(user_data: UserCreate,
     db.commit()
     db.refresh(user)
 
-    return {"status": "success", "username": user.username, "uuid": user.uuid}
+    return {"status": "success", "username": user.username, "minecraft_username": user.minecraft_username, "uuid": user.uuid}
 
 @app.post("/users/{username}/{repo_name}/commit")
 def create_commit(username: str,
