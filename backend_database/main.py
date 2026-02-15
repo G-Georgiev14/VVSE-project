@@ -24,6 +24,10 @@ class UserCreate(BaseModel):
     password: str
     minecraft_username: str
 
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
 app = FastAPI()
 
 app.add_middleware(CORSMiddleware, 
@@ -163,6 +167,23 @@ def check_user_exists(username: str,
         return {"email": True}
 
     return{"exists": False}
+
+@app.post("/login")
+def login(request: LoginRequest, db: Session = Depends(get_database)):
+    user = db.query(models.User).filter(models.User.username == request.username).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if user.password != request.password:
+        raise HTTPException(status_code=401, detail="Invalid password")
+    
+    return{
+        "status": "successful",
+        "username": user.username,
+        "minecraft_username": user.minecraft_username,
+        "uuid": user.uuid
+    }
 
 @app.get("/users/uuid")
 def check_for_valid_uuid(uuid: str, db: Session = Depends(get_database)):

@@ -96,4 +96,22 @@ export async function createUser(username, email, password, mcUsername){
   return await response.json()
 }
 
+export async function loginUser(username, password) {
+  const url = `${API_BASE_URL}/login`;
 
+  const respose = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ username, password })
+  });
+
+  if (!respose.ok){
+    const errorData = await respose.json();
+    return { error: errorData.detail || "Login failed"};
+  }
+
+  return await respose.json();
+  
+}

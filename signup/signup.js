@@ -15,8 +15,12 @@ async function start_signup(){
   const passwordInput = document.getElementById('password');
   const mcUsernameInput = document.getElementById('mcUsername');
 
-  if(emailInput.validateOnClick() && usernameInput.validateOnClick() &&
-     passwordInput.validateOnClick() && mcUsernameInput.validateOnClick()){
+  const emailValidate = emailInput.validateOnClick();
+  const usernameValidate = usernameInput.validateOnClick();
+  const passwordValidate = passwordInput.validateOnClick();
+  const mcUsernameValidate = mcUsernameInput.validateOnClick()
+
+  if(emailValidate && usernameValidate && passwordValidate && mcUsernameValidate){
 
       const userExistsData = await checkUserExists(emailInput.value, usernameInput.value);
 
