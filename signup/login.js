@@ -1,4 +1,4 @@
-import { validateInput, rules, loginUser } from './checks.js';
+import { validateInput, rules, loginUser, generateHash } from './checks.js';
 
 const login_btn = document.getElementById('login');
 login_btn.addEventListener('click', start_login);
@@ -18,7 +18,9 @@ async function start_login(){
   // Only proceed if all inputs are valid
   if (isUsernameValid && isPasswordValid) {
     
-    const result = await loginUser(usernameInput.value, passwordInput.value);
+    const hashedPassword = await generateHash(usernameInput.value, passwordInput.value);
+
+    const result = await loginUser(usernameInput.value, hashedPassword);
 
     if (result && !result.error){
       console.log('Login successful for user:', result.username);
@@ -30,11 +32,6 @@ async function start_login(){
       localStorage.setItem('username', result.username);
       localStorage.setItem('minecraftUsername', result.minecraft_username);
       
-      console.log('Stored auth data:', {
-        token: result.uuid,
-        username: result.username
-      });
-      
       // Redirect to homepage after a short delay
       setTimeout(() => {
         console.log('Redirecting to homepage...');
@@ -42,7 +39,7 @@ async function start_login(){
       }, 1500);
     }
     else{
-      showLoginErrorMessage(result.error || 'Invalid username ro password.');
+      showLoginErrorMessage('Invalid username ro password.');
     }
   }
 }

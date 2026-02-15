@@ -69,49 +69,48 @@ async function checkUuidExixst(uuid) {
 
 }
 
-export async function createUser(username, email, password, mcUsername){
+export async function createUser(username, email, hashedPassword, mcUsername){
   const url = `${API_BASE_URL}/users`;
 
   const userData = {
     username: username,
     email: email,
-    password: password,
+    password: hashedPassword,
     minecraft_username: mcUsername
   };
 
   const response = await fetch(url,{
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(userData)
   });
 
-  if(!response.ok){
-    const errorData = await response.json();
-    console.error("Signup failed:", errorData.detail);
-    return null;
-  }
-
-  return await response.json()
+  if(!response.ok)return null;
+  return await response.json();
 }
 
-export async function loginUser(username, password) {
+export async function loginUser(username, hashedPassword) {
   const url = `${API_BASE_URL}/login`;
 
-  const respose = await fetch(url, {
+  const response = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ username, password })
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password: hashedPassword})
   });
 
-  if (!respose.ok){
-    const errorData = await respose.json();
-    return { error: errorData.detail || "Login failed"};
-  }
-
-  return await respose.json();
+  if (!response.ok) return { error: response.detail || "Login failed"};
+  return await response.json();
   
+}
+
+export async function generateHash(author, password, algorithm = 'SHA-256') {
+
+  const combineInput = author.toLowerCase() + password;
+  const msgBuffer = new TextEncoder().encode(combineInput);
+  const hashBuffer = await crypto.subtle.digest(algorithm, msgBuffer);
+
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16). padStart(2, '0')).join('');
+
+  return hashHex;
 }

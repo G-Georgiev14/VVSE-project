@@ -1,4 +1,4 @@
-import { validateInput, rules, checkUserExists, createUser } from './checks.js';
+import { validateInput, rules, checkUserExists, createUser, generateHash } from './checks.js';
 
 const signup_btn = document.getElementById('signup');
 signup_btn.addEventListener('click', start_signup);
@@ -29,25 +29,22 @@ async function start_signup(){
       return;
     }
 
+    const hashedPassword = await generateHash(usernameInput.value, passwordInput.value);
+
     const result = await createUser(
       usernameInput.value,
       emailInput.value,
-      passwordInput.value,
+      hashedPassword,
       mcUsernameInput.value
     );
 
     if(result && !result.error){
-      console.log('User signed up successfully:', result.username);
       showSuccessMessage('Account created successfully! Redirecting to homepage...');
-      
-      // Store authentication data
       localStorage.setItem('authToken', result.uuid);
       localStorage.setItem('username', result.username);
       localStorage.setItem('minecraftUsername', result.minecraft_username);
-      
-      // Redirect to homepage after a short delay
       setTimeout(() => {
-        window.location.href = "../login.html";
+        window.location.href = "./login.html";
       }, 1500);
     }
   }

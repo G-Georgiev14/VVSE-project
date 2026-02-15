@@ -187,10 +187,8 @@ def login(request: LoginRequest, db: Session = Depends(get_database)):
 
 @app.get("/users/uuid")
 def check_for_valid_uuid(uuid: str, db: Session = Depends(get_database)):
-    exists = db.query(exists().where(models.User.uuid == uuid)).scalar()
-    return exists
-    
-
+    return db.query(exists().where(models.User.uuid == uuid)).scalar()
+     
 if __name__ == "__main__":
 
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
