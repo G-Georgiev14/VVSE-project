@@ -7,7 +7,7 @@ validateInput('email', rules.email, 'emailError', 'Invalid email format.');
 validateInput('username', rules.username, 'usernameError', 'Invalid username format.');
 validateInput('password', rules.password, 'passwordError', 'Invalid password format.');
 validateInput('mcUsername', rules.minecraftUsername, 
-              'mcUsernameError', 'Invalid minecarft username format.');
+              'mcUsernameError', 'Invalid minecraft username format.');
 
 async function start_signup(){
   const emailInput = document.getElementById('email');

@@ -89,7 +89,7 @@ def create_commit(username: str,
     user_check = db.query(exists().where(and_(models.User.uuid == uuid, models.User.username == username))).scalar()
 
     if not user_check:
-        raise HTTPException(status_code=404, detail="User doesnt exist")
+        raise HTTPException(status_code=404, detail="User doesn't exist")
     
     commit_database = database.get_commit_database_session(username, repo_name, commit_name)
 
@@ -98,9 +98,9 @@ def create_commit(username: str,
     commit_database.commit()
     commit_database.close()
 
-    meta_datebase = database.get_repo_metadata_session(username, repo_name)
+    meta_database = database.get_repo_metadata_session(username, repo_name)
 
-    meta_datebase.query(models.RepoMetadata).update({models.RepoMetadata.is_active:False})
+    meta_database.query(models.RepoMetadata).update({models.RepoMetadata.is_active:False})
 
     new_history = models.RepoMetadata(
         commit_name = commit_name,
@@ -109,12 +109,12 @@ def create_commit(username: str,
         is_active = True
     )
 
-    meta_datebase.add(new_history)
-    meta_datebase.commit()
+    meta_database.add(new_history)
+    meta_database.commit()
 
-    meta_datebase.close()
+    meta_database.close()
 
-    return {"status": "commited", "commit_name": commit_name, "hash": commit_hash}
+    return {"status": "committed", "commit_name": commit_name, "hash": commit_hash}
 
 @app.post("/users/{username}/{repo_name}/reset-hard")
 def reset_hard(username: str,
@@ -166,7 +166,7 @@ def check_user_exists(username: str,
     if user_email_exists:
         return {"email": True}
 
-    return{"exists": False}
+    return {"exists": False}
 
 @app.post("/login")
 def login(request: LoginRequest, db: Session = Depends(get_database)):
@@ -178,7 +178,7 @@ def login(request: LoginRequest, db: Session = Depends(get_database)):
     if user.password != request.password:
         raise HTTPException(status_code=401, detail="Invalid password")
     
-    return{
+    return {
         "status": "successful",
         "username": user.username,
         "minecraft_username": user.minecraft_username,

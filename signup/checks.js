@@ -62,10 +62,10 @@ export async function checkUserExists(email, username){
     return await response.json();
 }
 
-async function checkUuidExixst(uuid) {
+async function checkUuidExists(uuid) {
   const url = `${API_BASE_URL}/users/uuid?uuid=${uuid}`
   const response = await fetch(url);
-  return await(response).json();
+  return await response.json();
 
 }
 
@@ -110,7 +110,7 @@ export async function generateHash(author, password, algorithm = 'SHA-256') {
   const hashBuffer = await crypto.subtle.digest(algorithm, msgBuffer);
 
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray.map(b => b.toString(16). padStart(2, '0')).join('');
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
   return hashHex;
 }
