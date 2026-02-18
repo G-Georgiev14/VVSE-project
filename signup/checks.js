@@ -16,11 +16,11 @@ export function validateInput(id, regex, errorId, errorMsg){
   input.oninput = function() {
     // Only show green border for valid inputs during typing
     if (regex.test(input.value)) {
-      input.style.border = "2px solid #2ecc71";
+      input.style.border = "0.125rem solid #2ecc71";
       errorDisplay.innerText = "";
     } else {
       // Reset to default border during typing
-      input.style.border = "3px solid #8B7355";
+      input.style.border = "0.1875rem solid #8B7355";
       errorDisplay.innerText = "";
     }
   };
@@ -28,7 +28,7 @@ export function validateInput(id, regex, errorId, errorMsg){
   // Function to validate on button click
   input.validateOnClick = function() {
     if (input.value === ""){
-      input.style.border = "2px solid #cd1a06";
+      input.style.border = "0.125rem solid #cd1a06";
       input.style.transition = "transform 0.3s ease";
       input.classList.add('input-error');
       setTimeout(() => input.classList.remove('input-error'), 500);
@@ -36,12 +36,12 @@ export function validateInput(id, regex, errorId, errorMsg){
       return false;
     }
     else if (regex.test(input.value)) {
-      input.style.border = "2px solid #2ecc71";
+      input.style.border = "0.125rem solid #2ecc71";
       errorDisplay.innerText = "";
       return true;
     }
     else {
-      input.style.border = "2px solid #cd1a06";
+      input.style.border = "0.125rem solid #cd1a06";
       input.style.transition = "transform 0.3s ease";
       input.classList.add('input-error');
       setTimeout(() => input.classList.remove('input-error'), 500);

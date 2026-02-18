@@ -6,7 +6,7 @@
 
 body {
     font-family: 'Minecraft', sans-serif;
-    font-weight: 200px;
+    font-weight: 200;
     background: linear-gradient(135deg, #87CEEB 0%, #98D8E8 30%, #B0E0E6 70%, #E0F6FF 100%);
     min-height: 100vh;
     display: flex;
@@ -17,7 +17,27 @@ body {
     animation: backgroundShift 10s ease-in-out infinite;
 }
 
-.clouds {
+#sky {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+}
+
+.sun {
+    position: fixed;
+    top: 3.125rem;
+    right: 6.25rem;
+    width: 10rem;
+    height: 10rem;
+    background: #FFD700;
+    border: 0.25rem solid #FFA500;
+    image-rendering: pixelated;
+    z-index: 0;
+    animation: sunGlow 4s ease-in-out infinite alternate;
+    box-shadow: 0 0 3.75rem rgba(255, 215, 0, 0.8);
+}
+
+#sky {
     position: fixed;
     top: 0;
     left: 0;
@@ -29,786 +49,51 @@ body {
 
 .cloud {
     position: absolute;
+    background: #e0e4eb;
+    height: 1.25rem;
+    width: 0;
+    display:grid;
+}
+
+.pixel{
+    width: 3.75rem;
+    height: 2.5rem;   
     background: #FFFFFF;
-    border-radius: 0px;
-    opacity: 0.7;
 }
 
-.cloud::before,
-.cloud::after {
-    content: '';
-    position: absolute;
-    background: #FFFFFF;
-    border-radius: 0px;
-}
-
-/* Cloud 1 - Massive thick cloud - starts far left */
-.cloud1 {
-    width: 450px;
-    height: 140px;
-    top: 3%;
-    left: -450px;
-    animation: cloudMoveRight1 65s linear infinite;
-    opacity: 0.85;
-}
-
-.cloud1::before {
-    width: 180px;
-    height: 180px;
-    top: -90px;
-    left: 60px;
-}
-
-.cloud1::after {
-    width: 220px;
-    height: 140px;
-    top: -60px;
-    right: 60px;
-}
-
-/* Cloud 2 - Long horizontal cloud - starts far left */
-.cloud2 {
-    width: 500px;
-    height: 90px;
-    top: 18%;
-    left: -1500px;
-    animation: cloudMoveRight2 58s linear infinite;
-    opacity: 0.75;
-}
-
-.cloud2::before {
-    width: 100px;
-    height: 100px;
-    top: -50px;
-    left: 80px;
-}
-
-.cloud2::after {
-    width: 120px;
-    height: 90px;
-    top: -35px;
-    right: 80px;
-}
-
-/* Cloud 3 - Compact puffy cloud - starts middle */
-.cloud3 {
-    width: 280px;
-    height: 120px;
-    top: 25%;
-    left: 20vw;
-    animation: cloudMoveRight3 45s linear infinite;
-    opacity: 0.9;
-}
-
-.cloud3::before {
-    width: 140px;
-    height: 140px;
-    top: -70px;
-    left: 40px;
-}
-
-.cloud3::after {
-    width: 160px;
-    height: 120px;
-    top: -50px;
-    right: 40px;
-}
-
-/* Cloud 4 - Thin stretched cloud - starts far left */
-.cloud4 {
-    width: 380px;
-    height: 70px;
-    top: 35%;
-    left: -1200px;
-    animation: cloudMoveRight4 42s linear infinite;
-    opacity: 0.65;
-}
-
-.cloud4::before {
-    width: 80px;
-    height: 80px;
-    top: -40px;
-    left: 100px;
-}
-
-.cloud4::after {
-    width: 90px;
-    height: 70px;
-    top: -25px;
-    right: 100px;
-}
-
-/* Cloud 5 - Tall vertical cloud - starts middle-right */
-.cloud5 {
-    width: 250px;
-    height: 160px;
-    top: 42%;
-    left: 60vw;
-    animation: cloudMoveRight5 52s linear infinite;
-    opacity: 0.8;
-}
-
-.cloud5::before {
-    width: 120px;
-    height: 120px;
-    top: -60px;
-    left: 30px;
-}
-
-.cloud5::after {
-    width: 140px;
-    height: 160px;
-    top: -70px;
-    right: 30px;
-}
-
-/* Cloud 6 - Small scattered cloud - starts right */
-.cloud6 {
-    width: 200px;
-    height: 80px;
-    top: 8%;
-    left: 85vw;
-    animation: cloudMoveRight6 32s linear infinite;
-    opacity: 0.7;
-}
-
-.cloud6::before {
-    width: 70px;
-    height: 70px;
-    top: -35px;
-    left: 25px;
-}
-
-.cloud6::after {
-    width: 80px;
-    height: 80px;
-    top: -30px;
-    right: 25px;
-}
-
-/* Cloud 7 - Massive storm cloud - starts far left */
-.cloud7 {
-    width: 520px;
-    height: 150px;
-    top: 15%;
-    left: -2000px;
-    animation: cloudMoveRight7 70s linear infinite;
-    opacity: 0.95;
-}
-
-.cloud7::before {
-    width: 200px;
-    height: 200px;
-    top: -100px;
-    left: 70px;
-}
-
-.cloud7::after {
-    width: 240px;
-    height: 150px;
-    top: -65px;
-    right: 70px;
-}
-
-/* Cloud 8 - Fast small cloud - starts middle */
-.cloud8 {
-    width: 180px;
-    height: 60px;
-    top: 28%;
-    left: 45vw;
-    animation: cloudMoveRight8 24s linear infinite;
-    opacity: 0.6;
-}
-
-.cloud8::before {
-    width: 60px;
-    height: 60px;
-    top: -30px;
-    left: 20px;
-}
-
-.cloud8::after {
-    width: 70px;
-    height: 60px;
-    top: -20px;
-    right: 20px;
-}
-
-/* Cloud 9 - Medium balanced cloud - starts right */
-.cloud9 {
-    width: 320px;
-    height: 100px;
-    top: 38%;
-    left: 75vw;
-    animation: cloudMoveRight9 48s linear infinite;
-    opacity: 0.75;
-}
-
-.cloud9::before {
-    width: 110px;
-    height: 110px;
-    top: -55px;
-    left: 50px;
-}
-
-.cloud9::after {
-    width: 130px;
-    height: 100px;
-    top: -40px;
-    right: 50px;
-}
-
-/* Cloud 10 - Low hanging cloud - starts far left */
-.cloud10 {
-    width: 360px;
-    height: 85px;
-    top: 48%;
-    left: -1800px;
-    animation: cloudMoveRight10 55s linear infinite;
-    opacity: 0.8;
-}
-
-.cloud10::before {
-    width: 90px;
-    height: 90px;
-    top: -45px;
-    left: 80px;
-}
-
-.cloud10::after {
-    width: 110px;
-    height: 85px;
-    top: -35px;
-    right: 80px;
-}
-
-/* Cloud 11 - Tiny wispy cloud - starts middle-left */
-.cloud11 {
-    width: 150px;
-    height: 50px;
-    top: 12%;
-    left: 15vw;
-    animation: cloudMoveRight11 28s linear infinite;
-    opacity: 0.5;
-}
-
-.cloud11::before {
-    width: 50px;
-    height: 50px;
-    top: -25px;
-    left: 15px;
-}
-
-.cloud11::after {
-    width: 60px;
-    height: 50px;
-    top: -15px;
-    right: 15px;
-}
-
-/* Cloud 12 - Giant blanket cloud - starts right */
-.cloud12 {
-    width: 600px;
-    height: 120px;
-    top: 20%;
-    left: 90vw;
-    animation: cloudMoveRight12 75s linear infinite;
-    opacity: 0.9;
-}
-
-.cloud12::before {
-    width: 150px;
-    height: 150px;
-    top: -75px;
-    left: 120px;
-}
-
-.cloud12::after {
-    width: 180px;
-    height: 120px;
-    top: -50px;
-    right: 120px;
-}
-
-/* Cloud 13 - Mid-height cloud - starts far left */
-.cloud13 {
-    width: 290px;
-    height: 95px;
-    top: 32%;
-    left: -1000px;
-    animation: cloudMoveRight13 40s linear infinite;
-    opacity: 0.7;
-}
-
-.cloud13::before {
-    width: 100px;
-    height: 100px;
-    top: -50px;
-    left: 45px;
-}
-
-.cloud13::after {
-    width: 120px;
-    height: 95px;
-    top: -38px;
-    right: 45px;
-}
-
-/* Cloud 14 - Fast moving cloud - starts middle */
-.cloud14 {
-    width: 240px;
-    height: 75px;
-    top: 45%;
-    left: 55vw;
-    animation: cloudMoveRight14 26s linear infinite;
-    opacity: 0.65;
-}
-
-.cloud14::before {
-    width: 75px;
-    height: 75px;
-    top: -37px;
-    left: 30px;
-}
-
-.cloud14::after {
-    width: 85px;
-    height: 75px;
-    top: -28px;
-    right: 30px;
-}
-
-/* Cloud 15 - Very high cloud - starts right */
-.cloud15 {
-    width: 340px;
-    height: 90px;
-    top: 1%;
-    left: 80vw;
-    animation: cloudMoveRight15 60s linear infinite;
-    opacity: 0.55;
-}
-
-.cloud15::before {
-    width: 110px;
-    height: 110px;
-    top: -55px;
-    left: 55px;
-}
-
-.cloud15::after {
-    width: 130px;
-    height: 90px;
-    top: -35px;
-    right: 55px;
-}
 
-/* Cloud 16 - Extra left spawn cloud - small fast */
-.cloud16 {
-    width: 160px;
-    height: 55px;
-    top: 5%;
-    left: -800px;
-    animation: cloudMoveRight16 30s linear infinite;
-    opacity: 0.6;
-}
-
-.cloud16::before {
-    width: 55px;
-    height: 55px;
-    top: -27px;
-    left: 20px;
-}
-
-.cloud16::after {
-    width: 65px;
-    height: 55px;
-    top: -18px;
-    right: 20px;
-}
-
-/* Cloud 17 - Extra left spawn cloud - medium */
-.cloud17 {
-    width: 300px;
-    height: 95px;
-    top: 22%;
-    left: -1300px;
-    animation: cloudMoveRight17 45s linear infinite;
-    opacity: 0.75;
-}
-
-.cloud17::before {
-    width: 120px;
-    height: 120px;
-    top: -60px;
-    left: 40px;
-}
-
-.cloud17::after {
-    width: 140px;
-    height: 95px;
-    top: -38px;
-    right: 40px;
-}
-
-/* Cloud 18 - Extra left spawn cloud - large */
-.cloud18 {
-    width: 420px;
-    height: 110px;
-    top: 30%;
-    left: -1600px;
-    animation: cloudMoveRight18 62s linear infinite;
-    opacity: 0.8;
-}
-
-.cloud18::before {
-    width: 160px;
-    height: 160px;
-    top: -80px;
-    left: 60px;
-}
-
-.cloud18::after {
-    width: 180px;
-    height: 110px;
-    top: -45px;
-    right: 60px;
-}
-
-/* Cloud 19 - Extra left spawn cloud - tiny */
-.cloud19 {
-    width: 130px;
-    height: 45px;
-    top: 40%;
-    left: -600px;
-    animation: cloudMoveRight19 22s linear infinite;
-    opacity: 0.5;
-}
-
-.cloud19::before {
-    width: 45px;
-    height: 45px;
-    top: -22px;
-    left: 15px;
-}
-
-.cloud19::after {
-    width: 55px;
-    height: 45px;
-    top: -15px;
-    right: 15px;
-}
-
-/* Cloud 20 - Extra left spawn cloud - tall */
-.cloud20 {
-    width: 220px;
-    height: 140px;
-    top: 50%;
-    left: -1100px;
-    animation: cloudMoveRight20 50s linear infinite;
-    opacity: 0.7;
-}
-
-.cloud20::before {
-    width: 90px;
-    height: 90px;
-    top: -45px;
-    left: 30px;
-}
-
-.cloud20::after {
-    width: 110px;
-    height: 140px;
-    top: -60px;
-    right: 30px;
-}
-
-/* Cloud 21 - Middle start cloud - small */
-.cloud21 {
-    width: 190px;
-    height: 65px;
-    top: 7%;
-    left: 35vw;
-    animation: cloudMoveRight21 38s linear infinite;
-    opacity: 0.65;
-}
-
-.cloud21::before {
-    width: 65px;
-    height: 65px;
-    top: -32px;
-    left: 25px;
-}
-
-.cloud21::after {
-    width: 75px;
-    height: 65px;
-    top: -20px;
-    right: 25px;
-}
-
-/* Cloud 22 - Left start cloud - medium */
-.cloud22 {
-    width: 310px;
-    height: 88px;
-    top: 16%;
-    left: -700px;
-    animation: cloudMoveRight22 46s linear infinite;
-    opacity: 0.72;
-}
-
-.cloud22::before {
-    width: 110px;
-    height: 110px;
-    top: -55px;
-    left: 45px;
-}
-
-.cloud22::after {
-    width: 130px;
-    height: 88px;
-    top: -35px;
-    right: 45px;
-}
-
-/* Cloud 23 - Middle start cloud - large */
-.cloud23 {
-    width: 440px;
-    height: 105px;
-    top: 27%;
-    left: 25vw;
-    animation: cloudMoveRight23 54s linear infinite;
-    opacity: 0.78;
-}
-
-.cloud23::before {
-    width: 150px;
-    height: 150px;
-    top: -75px;
-    left: 65px;
-}
-
-.cloud23::after {
-    width: 170px;
-    height: 105px;
-    top: -42px;
-    right: 65px;
-}
-
-/* Cloud 24 - Left start cloud - small fast */
-.cloud24 {
-    width: 170px;
-    height: 58px;
-    top: 37%;
-    left: -900px;
-    animation: cloudMoveRight24 26s linear infinite;
-    opacity: 0.62;
-}
-
-.cloud24::before {
-    width: 58px;
-    height: 58px;
-    top: -29px;
-    left: 22px;
-}
-
-.cloud24::after {
-    width: 68px;
-    height: 58px;
-    top: -19px;
-    right: 22px;
-}
-
-/* Cloud 25 - Middle start cloud - medium */
-.cloud25 {
-    width: 280px;
-    height: 92px;
-    top: 44%;
-    left: 50vw;
-    animation: cloudMoveRight25 41s linear infinite;
-    opacity: 0.7;
-}
-
-.cloud25::before {
-    width: 100px;
-    height: 100px;
-    top: -50px;
-    left: 40px;
-}
-
-.cloud25::after {
-    width: 120px;
-    height: 92px;
-    top: -37px;
-    right: 40px;
-}
-
-/* Cloud 26 - Left start cloud - tall */
-.cloud26 {
-    width: 230px;
-    height: 145px;
-    top: 52%;
-    left: -500px;
-    animation: cloudMoveRight26 48s linear infinite;
-    opacity: 0.68;
-}
-
-.cloud26::before {
-    width: 95px;
-    height: 95px;
-    top: -47px;
-    left: 32px;
-}
-
-.cloud26::after {
-    width: 115px;
-    height: 145px;
-    top: -62px;
-    right: 32px;
-}
-
-/* Cloud 27 - Middle start cloud - tiny */
-.cloud27 {
-    width: 140px;
-    height: 48px;
-    top: 33%;
-    left: 65vw;
-    animation: cloudMoveRight27 23s linear infinite;
-    opacity: 0.55;
-}
-
-.cloud27::before {
-    width: 48px;
-    height: 48px;
-    top: -24px;
-    left: 18px;
-}
-
-.cloud27::after {
-    width: 58px;
-    height: 48px;
-    top: -16px;
-    right: 18px;
-}
-
-/* Cloud 28 - Left start cloud - large slow */
-.cloud28 {
-    width: 480px;
-    height: 115px;
-    top: 21%;
-    left: -1400px;
-    animation: cloudMoveRight28 68s linear infinite;
-    opacity: 0.82;
-}
-
-.cloud28::before {
-    width: 170px;
-    height: 170px;
-    top: -85px;
-    left: 70px;
-}
-
-.cloud28::after {
-    width: 190px;
-    height: 115px;
-    top: -47px;
-    right: 70px;
-}
-
-/* Cloud 29 - Middle start cloud - medium fast */
-.cloud29 {
-    width: 260px;
-    height: 78px;
-    top: 39%;
-    left: 40vw;
-    animation: cloudMoveRight29 33s linear infinite;
-    opacity: 0.67;
-}
-
-.cloud29::before {
-    width: 85px;
-    height: 85px;
-    top: -42px;
-    left: 35px;
-}
-
-.cloud29::after {
-    width: 105px;
-    height: 78px;
-    top: -28px;
-    right: 35px;
-}
-
-/* Cloud 30 - Left start cloud - small */
-.cloud30 {
-    width: 180px;
-    height: 62px;
-    top: 46%;
-    left: -300px;
-    animation: cloudMoveRight30 36s linear infinite;
-    opacity: 0.6;
-}
-
-.cloud30::before {
-    width: 62px;
-    height: 62px;
-    top: -31px;
-    left: 28px;
-}
-
-.cloud30::after {
-    width: 72px;
-    height: 62px;
-    top: -21px;
-    right: 28px;
-}
-
-
-/* Minecraft Sun */
-.sun {
-    position: fixed;
-    top: 50px;
-    right: 100px;
-    width: 160px;
-    height: 160px;
-    background: #FFD700;
-    border: 4px solid #FFA500;
-    image-rendering: pixelated;
-    z-index: 0;
-    animation: sunGlow 4s ease-in-out infinite alternate;
-    box-shadow: 0 0 60px rgba(255, 215, 0, 0.8);
-}
 
 .sun::before {
     content: '';
     position: absolute;
-    top: 8px;
-    left: 8px;
-    right: 8px;
-    bottom: 8px;
+    top: 0.5rem;
+    left: 0.5rem;
+    right: 0.5rem;
+    bottom: 0.5rem;
     background: #FFEB3B;
-    border: 2px solid #FFD700;
+    border: 0.125rem solid #FFD700;
     animation: sunPulse 3s ease-in-out infinite alternate;
 }
 
 .sun::after {
     content: '';
     position: absolute;
-    top: 16px;
-    left: 16px;
-    right: 16px;
-    bottom: 16px;
+    top: 1rem;
+    left: 1rem;
+    right: 1rem;
+    bottom: 1rem;
     background: #FFF59D;
-    border: 1px solid #FFEB3B;
+    border: 0.0625rem solid #FFEB3B;
     animation: sunInnerPulse 2s ease-in-out infinite alternate;
 }
 
 /* Sunlight Spread Effect */
 .sun-rays {
     position: absolute;
-    top: -100px;
-    left: -100px;
-    right: -100px;
-    bottom: -100px;
+    top: -6.25rem;
+    left: -6.25rem;
+    right: -6.25rem;
+    bottom: -6.25rem;
     background: radial-gradient(circle, 
         rgba(255, 215, 0, 0.4) 0%, 
         rgba(255, 235, 59, 0.3) 20%, 
@@ -835,18 +120,18 @@ body {
 
 .sun-rays::before {
     top: 50%;
-    left: -200px;
-    right: -200px;
-    height: 80px;
+    left: -12.5rem;
+    right: -12.5rem;
+    height: 5rem;
     transform: translateY(-50%);
     animation: sunlightBeam1 8s ease-in-out infinite alternate;
 }
 
 .sun-rays::after {
-    top: -200px;
-    bottom: -200px;
+    top: -12.5rem;
+    bottom: -12.5rem;
     left: 50%;
-    width: 80px;
+    width: 5rem;
     transform: translateX(-50%);
     animation: sunlightBeam2 8s ease-in-out infinite alternate;
 }
@@ -854,10 +139,10 @@ body {
 /* Additional Light Spread */
 .sun-rays2 {
     position: absolute;
-    top: -150px;
-    left: -150px;
-    right: -150px;
-    bottom: -150px;
+    top: -9.375rem;
+    left: -9.375rem;
+    right: -9.375rem;
+    bottom: -9.375rem;
     background: radial-gradient(circle, 
         rgba(255, 245, 157, 0.3) 0%, 
         rgba(255, 255, 200, 0.2) 30%, 
@@ -870,11 +155,11 @@ body {
 @keyframes sunGlow {
     0% { 
         transform: scale(1);
-        box-shadow: 0 0 60px rgba(255, 215, 0, 0.8);
+        box-shadow: 0 0 3.75rem rgba(255, 215, 0, 0.8);
     }
     100% { 
         transform: scale(1.05);
-        box-shadow: 0 0 80px rgba(255, 215, 0, 1);
+        box-shadow: 0 0 5rem rgba(255, 215, 0, 1);
     }
 }
 
@@ -945,240 +230,25 @@ body {
 }
 
 
-/* All clouds move left-to-right - continuous movement */
-@keyframes cloudMoveRight1 {
-    0% { transform: translateX(0) translateY(0px); }
-    25% { transform: translateX(25vw) translateY(-8px); }
-    50% { transform: translateX(50vw) translateY(5px); }
-    75% { transform: translateX(75vw) translateY(-6px); }
-    100% { transform: translateX(calc(100vw + 900px)) translateY(0px); }
-}
-
-@keyframes cloudMoveRight2 {
-    0% { transform: translateX(0) translateY(0px); }
-    25% { transform: translateX(25vw) translateY(6px); }
-    50% { transform: translateX(50vw) translateY(-8px); }
-    75% { transform: translateX(75vw) translateY(4px); }
-    100% { transform: translateX(calc(100vw + 1000px)) translateY(0px); }
-}
-
-@keyframes cloudMoveRight3 {
-    0% { transform: translateX(0) translateY(0px); }
-    33% { transform: translateX(33vw) translateY(-10px); }
-    66% { transform: translateX(66vw) translateY(7px); }
-    100% { transform: translateX(calc(100vw + 560px)) translateY(0px); }
-}
-
-@keyframes cloudMoveRight4 {
-    0% { transform: translateX(0) translateY(0px); }
-    50% { transform: translateX(50vw) translateY(-12px); }
-    100% { transform: translateX(calc(100vw + 760px)) translateY(0px); }
-}
-
-@keyframes cloudMoveRight5 {
-    0% { transform: translateX(0) translateY(0px); }
-    40% { transform: translateX(40vw) translateY(8px); }
-    100% { transform: translateX(calc(100vw + 500px)) translateY(0px); }
-}
-
-@keyframes cloudMoveRight6 {
-    0% { transform: translateX(0) translateY(0px); }
-    30% { transform: translateX(30vw) translateY(-6px); }
-    60% { transform: translateX(60vw) translateY(9px); }
-    100% { transform: translateX(calc(100vw + 400px)) translateY(0px); }
-}
-
-@keyframes cloudMoveRight7 {
-    0% { transform: translateX(0) translateY(0px); }
-    20% { transform: translateX(20vw) translateY(-15px); }
-    40% { transform: translateX(40vw) translateY(10px); }
-    60% { transform: translateX(60vw) translateY(-12px); }
-    80% { transform: translateX(80vw) translateY(8px); }
-    100% { transform: translateX(calc(100vw + 1040px)) translateY(0px); }
-}
-
-@keyframes cloudMoveRight8 {
-    0% { transform: translateX(0) translateY(0px); }
-    100% { transform: translateX(calc(100vw + 360px)) translateY(-5px); }
-}
-
-@keyframes cloudMoveRight9 {
-    0% { transform: translateX(0) translateY(0px); }
-    25% { transform: translateX(25vw) translateY(7px); }
-    50% { transform: translateX(50vw) translateY(-9px); }
-    75% { transform: translateX(75vw) translateY(5px); }
-    100% { transform: translateX(calc(100vw + 640px)) translateY(0px); }
-}
-
-@keyframes cloudMoveRight10 {
-    0% { transform: translateX(0) translateY(0px); }
-    35% { transform: translateX(35vw) translateY(-8px); }
-    70% { transform: translateX(70vw) translateY(11px); }
-    100% { transform: translateX(calc(100vw + 720px)) translateY(0px); }
-}
-
-@keyframes cloudMoveRight11 {
-    0% { transform: translateX(0) translateY(0px); }
-    100% { transform: translateX(calc(100vw + 300px)) translateY(-4px); }
-}
-
-@keyframes cloudMoveRight12 {
-    0% { transform: translateX(0) translateY(0px); }
-    15% { transform: translateX(15vw) translateY(-10px); }
-    30% { transform: translateX(30vw) translateY(8px); }
-    45% { transform: translateX(45vw) translateY(-12px); }
-    60% { transform: translateX(60vw) translateY(10px); }
-    75% { transform: translateX(75vw) translateY(-7px); }
-    90% { transform: translateX(90vw) translateY(9px); }
-    100% { transform: translateX(calc(100vw + 1200px)) translateY(0px); }
-}
-
-@keyframes cloudMoveRight13 {
-    0% { transform: translateX(0) translateY(0px); }
-    45% { transform: translateX(45vw) translateY(-9px); }
-    100% { transform: translateX(calc(100vw + 580px)) translateY(0px); }
-}
-
-@keyframes cloudMoveRight14 {
-    0% { transform: translateX(0) translateY(0px); }
-    33% { transform: translateX(33vw) translateY(12px); }
-    66% { transform: translateX(66vw) translateY(-10px); }
-    100% { transform: translateX(calc(100vw + 480px)) translateY(0px); }
-}
-
-@keyframes cloudMoveRight15 {
-    0% { transform: translateX(0) translateY(0px); }
-    30% { transform: translateX(30vw) translateY(-7px); }
-    60% { transform: translateX(60vw) translateY(6px); }
-    100% { transform: translateX(calc(100vw + 680px)) translateY(0px); }
-}
-
-@keyframes cloudMoveRight16 {
-    0% { transform: translateX(0) translateY(0px); }
-    100% { transform: translateX(calc(100vw + 320px)) translateY(-4px); }
-}
-
-@keyframes cloudMoveRight17 {
-    0% { transform: translateX(0) translateY(0px); }
-    25% { transform: translateX(25vw) translateY(8px); }
-    50% { transform: translateX(50vw) translateY(-10px); }
-    75% { transform: translateX(75vw) translateY(6px); }
-    100% { transform: translateX(calc(100vw + 600px)) translateY(0px); }
-}
-
-@keyframes cloudMoveRight18 {
-    0% { transform: translateX(0) translateY(0px); }
-    20% { transform: translateX(20vw) translateY(-12px); }
-    40% { transform: translateX(40vw) translateY(9px); }
-    60% { transform: translateX(60vw) translateY(-8px); }
-    80% { transform: translateX(80vw) translateY(7px); }
-    100% { transform: translateX(calc(100vw + 840px)) translateY(0px); }
-}
-
-@keyframes cloudMoveRight19 {
-    0% { transform: translateX(0) translateY(0px); }
-    100% { transform: translateX(calc(100vw + 260px)) translateY(-3px); }
-}
-
-@keyframes cloudMoveRight20 {
-    0% { transform: translateX(0) translateY(0px); }
-    30% { transform: translateX(30vw) translateY(-9px); }
-    60% { transform: translateX(60vw) translateY(11px); }
-    100% { transform: translateX(calc(100vw + 440px)) translateY(0px); }
-}
-
-@keyframes cloudMoveRight21 {
-    0% { transform: translateX(0) translateY(0px); }
-    25% { transform: translateX(25vw) translateY(7px); }
-    50% { transform: translateX(50vw) translateY(-8px); }
-    75% { transform: translateX(75vw) translateY(5px); }
-    100% { transform: translateX(calc(100vw + 380px)) translateY(0px); }
-}
-
-@keyframes cloudMoveRight22 {
-    0% { transform: translateX(0) translateY(0px); }
-    20% { transform: translateX(20vw) translateY(-10px); }
-    40% { transform: translateX(40vw) translateY(8px); }
-    60% { transform: translateX(60vw) translateY(-9px); }
-    80% { transform: translateX(80vw) translateY(6px); }
-    100% { transform: translateX(calc(100vw + 620px)) translateY(0px); }
-}
-
-@keyframes cloudMoveRight23 {
-    0% { transform: translateX(0) translateY(0px); }
-    30% { transform: translateX(30vw) translateY(-12px); }
-    60% { transform: translateX(60vw) translateY(10px); }
-    100% { transform: translateX(calc(100vw + 880px)) translateY(0px); }
-}
-
-@keyframes cloudMoveRight24 {
-    0% { transform: translateX(0) translateY(0px); }
-    100% { transform: translateX(calc(100vw + 340px)) translateY(-6px); }
-}
-
-@keyframes cloudMoveRight25 {
-    0% { transform: translateX(0) translateY(0px); }
-    35% { transform: translateX(35vw) translateY(-7px); }
-    70% { transform: translateX(70vw) translateY(9px); }
-    100% { transform: translateX(calc(100vw + 560px)) translateY(0px); }
-}
-
-@keyframes cloudMoveRight26 {
-    0% { transform: translateX(0) translateY(0px); }
-    25% { transform: translateX(25vw) translateY(11px); }
-    50% { transform: translateX(50vw) translateY(-10px); }
-    75% { transform: translateX(75vw) translateY(8px); }
-    100% { transform: translateX(calc(100vw + 460px)) translateY(0px); }
-}
-
-@keyframes cloudMoveRight27 {
-    0% { transform: translateX(0) translateY(0px); }
-    100% { transform: translateX(calc(100vw + 280px)) translateY(-4px); }
-}
-
-@keyframes cloudMoveRight28 {
-    0% { transform: translateX(0) translateY(0px); }
-    15% { transform: translateX(15vw) translateY(-14px); }
-    30% { transform: translateX(30vw) translateY(11px); }
-    45% { transform: translateX(45vw) translateY(-12px); }
-    60% { transform: translateX(60vw) translateY(9px); }
-    75% { transform: translateX(75vw) translateY(-8px); }
-    90% { transform: translateX(90vw) translateY(10px); }
-    100% { transform: translateX(calc(100vw + 960px)) translateY(0px); }
-}
-
-@keyframes cloudMoveRight29 {
-    0% { transform: translateX(0) translateY(0px); }
-    33% { transform: translateX(33vw) translateY(8px); }
-    66% { transform: translateX(66vw) translateY(-9px); }
-    100% { transform: translateX(calc(100vw + 520px)) translateY(0px); }
-}
-
-@keyframes cloudMoveRight30 {
-    0% { transform: translateX(0) translateY(0px); }
-    40% { transform: translateX(40vw) translateY(-6px); }
-    80% { transform: translateX(80vw) translateY(7px); }
-    100% { transform: translateX(calc(100vw + 360px)) translateY(0px); }
-}
-
 .minecraft-container {
     position: relative;
     z-index: 1;
+    
 }
 
 .signup-box {
     background: linear-gradient(135deg, #8B7355 0%, #A0826D 50%, #6B5D54 100%);
-    border: 4px solid #5C4033;
-    border-radius: 12px;
-    padding: 60px 50px;
+    border: 0.25rem solid #5C4033;
+    border-radius: 0.75rem;
+    padding: 3.75rem 3.125rem;
     box-shadow: 
-        0 0 0 4px #6B5D54,
-        0 0 0 8px #5C4033,
-        0 20px 40px rgba(0, 0, 0, 0.3),
-        inset 0 2px 4px rgba(255, 255, 255, 0.1);
+        0 0 0 0.25rem #6B5D54,
+        0 0 0 0.5rem #5C4033,
+        0 1.25rem 2.5rem rgba(0, 0, 0, 0.3),
+        inset 0 0.125rem 0.25rem rgba(255, 255, 255, 0.1);
     position: relative;
-    min-width: 500px;
-    max-width: 600px;
+    min-width: 31.25rem;
+    max-width: 37.5rem;
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     overflow: hidden;
 }
@@ -1186,23 +256,23 @@ body {
 .signup-box::before {
     content: '';
     position: absolute;
-    top: -4px;
-    left: -4px;
-    right: -4px;
-    bottom: -4px;
+    top: -0.25rem;
+    left: -0.25rem;
+    right: -0.25rem;
+    bottom: -0.25rem;
     background: repeating-linear-gradient(
         45deg,
         #6B5D54,
-        #6B5D54 10px,
-        #5C4033 10px,
-        #5C4033 20px
+        #6B5D54 0.625rem,
+        #5C4033 0.625rem,
+        #5C4033 1.25rem
     );
     z-index: -1;
 }
 
 .minecraft-header {
     text-align: center;
-    margin-bottom: 40px;
+    margin-bottom: 2.5rem;
 }
 
 .minecraft-title-image {
@@ -1218,20 +288,20 @@ body {
 .hub {
     color: #4CAF50;
     display: block;
-    font-size: 48px;
-    margin-top: 5px;
+    font-size: 3rem;
+    margin-top: 0.3125rem;
 }
 
 .subtitle {
     color: #2C2C2C;
-    font-size: 18px;
+    font-size: 1.125rem;
     opacity: 0.8;
 }
 
 .minecraft-form {
     display: flex;
     flex-direction: column;
-    gap: 30px;
+    gap: 1.875rem;
 }
 
 .input-group {
@@ -1240,26 +310,26 @@ body {
 
 .minecraft-input {
     width: 100%;
-    padding: 18px 20px;
+    padding: 1.125rem 1.25rem;
     background: linear-gradient(135deg, #D2B48C 0%, #DEB887 50%, #C19A6B 100%);
-    border: 3px solid #8B7355;
-    border-radius: 6px;
+    border: 0.1875rem solid #8B7355;
+    border-radius: 0.375rem;
     font-family: 'Minecraft', sans-serif;
-    font-weight: 200px;
-    font-size: 20px;
+    font-weight: 200;
+    font-size: 1.25rem;
     color: #2C2C2C;
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     outline: none;
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.2);
     overflow: hidden;
     position: relative;
 }
 
 .minecraft-input:focus {
     background: linear-gradient(135deg, #DEB887 0%, #F5DEB3 50%, #D2B48C 100%);
-    border: 3px solid #4CAF50;
-    transform: translateY(-2px) scale(1.02);
-    box-shadow: 0 12px 20px rgba(0, 0, 0, 0.3);
+    border: 0.1875rem solid #4CAF50;
+    transform: translateY(-0.125rem) scale(1.02);
+    box-shadow: 0 0.75rem 1.25rem rgba(0, 0, 0, 0.3);
 }
 
 .minecraft-input::placeholder {
@@ -1279,22 +349,22 @@ body {
 .minecraft-button {
     position: relative;
     background: linear-gradient(135deg, #4CAF50 0%, #45A049 50%, #388E3C 100%);
-    border: 3px solid #2E7D32;
-    padding: 12px 20px;
+    border: 0.1875rem solid #2E7D32;
+    padding: 0.75rem 1.25rem;
     font-family: 'Minecraft', sans-serif;
-    font-weight: 200px;
-    font-size: 24px;
+    font-weight: 200;
+    font-size: 1.5rem;
     font-weight: bold;
     color: white;
     cursor: pointer;
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     text-transform: uppercase;
-    letter-spacing: 3px;
-    margin-top: 20px;
-    border-radius: 4px;
+    letter-spacing: 0.1875rem;
+    margin-top: 1.25rem;
+    border-radius: 0.25rem;
     box-shadow: 
-        0 4px 0 #2E7D32,
-        0 8px 16px rgba(0, 0, 0, 0.3),
+        0 0.25rem 0 #2E7D32,
+        0 0.5rem 1rem rgba(0, 0, 0, 0.3),
         inset 0 1px 0 rgba(255, 255, 255, 0.2);
     overflow: hidden;
 }
@@ -1315,13 +385,13 @@ body {
 
 .minecraft-button:hover {
     background: linear-gradient(135deg, #66BB6A 0%, #4CAF50 50%, #43A047 100%);
-    transform: translateY(-3px) scale(1.05);
+    transform: translateY(-0.1875rem) scale(1.05);
     box-shadow: 
-        0 7px 0 #2E7D32,
-        0 12px 20px rgba(0, 0, 0, 0.4),
-        inset 0 1px 0 rgba(255, 255, 255, 0.3);
-    padding: 15px 35px;
-    letter-spacing: 4px;
+        0 0.4375rem 0 #2E7D32,
+        0 0.75rem 1.25rem rgba(0, 0, 0, 0.4),
+        inset 0 0.0625rem 0 rgba(255, 255, 255, 0.3);
+    padding: 0.9375rem 2.1875rem;
+    letter-spacing: 0.25rem;
 }
 
 .minecraft-button:hover::before {
@@ -1329,34 +399,34 @@ body {
 }
 
 .minecraft-button:active {
-    transform: translateY(-1px) scale(1.02);
+    transform: translateY(-0.0625rem) scale(1.02);
     box-shadow: 
-        0 2px 0 #2E7D32,
-        0 4px 8px rgba(0, 0, 0, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        0 0.125rem 0 #2E7D32,
+        0 0.25rem 0.5rem rgba(0, 0, 0, 0.3),
+        inset 0 0.0625rem 0 rgba(255, 255, 255, 0.1);
     transition: all 0.1s ease-in-out;
 }
 
 .button-text {
     position: relative;
     z-index: 2;
-    font-weight: 100px;
+    font-weight: 100;
 }
 
 .button-border {
     position: absolute;
-    top: -3px;
-    left: -3px;
-    right: -3px;
-    bottom: -3px;
+    top: -0.1875rem;
+    left: -0.1875rem;
+    right: -0.1875rem;
+    bottom: -0.1875rem;
     z-index: -1;
 }
 
 .login-link {
     text-align: center;
-    margin-top: 20px;
+    margin-top: 1.25rem;
     color: #2C2C2C;
-    font-size: 18px;
+    font-size: 1.125rem;
 }
 
 .minecraft-link {
@@ -1364,26 +434,26 @@ body {
     text-decoration: none;
     font-weight: bold;
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    text-shadow: 0 2px 4px rgba(76, 175, 80, 0.3);
+    text-shadow: 0 0.125rem 0.25rem rgba(76, 175, 80, 0.3);
     position: relative;
     display: inline-block;
-    padding: 2px 4px;
-    border-radius: 3px;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.1875rem;
 }
 
 .minecraft-link:hover {
     color: #66BB6A;
     text-decoration: none;
-    transform: translateY(-2px) scale(1.05);
-    text-shadow: 0 4px 8px rgba(76, 175, 80, 0.4);
+    transform: translateY(-0.125rem) scale(1.05);
+    text-shadow: 0 0.25rem 0.5rem rgba(76, 175, 80, 0.4);
 }
 
 .error-message, .success-message {
     text-align: center;
-    padding: 15px 20px;
-    margin-top: 20px;
-    border-radius: 8px;
-    font-size: 18px;
+    padding: 0.9375rem 1.25rem;
+    margin-top: 1.25rem;
+    border-radius: 0.5rem;
+    font-size: 1.125rem;
     display: none;
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     position: relative;
@@ -1392,22 +462,22 @@ body {
 
 .error-message {
     background: linear-gradient(135deg, #8B4513 0%, #A0522D 50%, #8B4513 100%);
-    border: 3px solid #654321;
+    border: 0.1875rem solid #654321;
     color: #FFE4B5;
     box-shadow: 
-        0 4px 0 #654321,
-        0 8px 16px rgba(0, 0, 0, 0.3),
+        0 0.25rem 0 #654321,
+        0 0.5rem 1rem rgba(0, 0, 0, 0.3),
         inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .success-message {
     background: linear-gradient(135deg, #4CAF50 0%, #66BB6A 50%, #43A047 100%);
-    border: 3px solid #2E7D32;
+    border: 0.1875rem solid #2E7D32;
     color: white;
     box-shadow: 
-        0 4px 0 #2E7D32,
-        0 8px 16px rgba(0, 0, 0, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+        0 0.25rem 0 #2E7D32,
+        0 0.5rem 1rem rgba(0, 0, 0, 0.3),
+        inset 0 0.0625rem 0 rgba(255, 255, 255, 0.3);
 }
 
 .minecraft-background {
@@ -1428,7 +498,7 @@ body {
     image-rendering: pixelated;
     image-rendering: -moz-crisp-edges;
     image-rendering: crisp-edges;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    box-shadow: 0 0.25rem 0.5rem rgba(0,0,0,0.3);
     overflow: hidden;
     z-index: 5;
 }
@@ -1441,13 +511,13 @@ body {
     right: 0;
     bottom: 0;
     pointer-events: none;
-    background-size: 16px 16px;
+    background-size: 1rem 1rem;
     background-repeat: repeat;
 }
 
 @keyframes float {
-    0%, 100% { transform: translateY(0px) rotate(var(--rotation, 0deg)); }
-    50% { transform: translateY(-20px) rotate(var(--rotation, 0deg)); }
+    0%, 100% { transform: translateY(0) rotate(var(--rotation, 0deg)); }
+    50% { transform: translateY(-1.25rem) rotate(var(--rotation, 0deg)); }
 }
 
 @keyframes backgroundShift {
@@ -1456,14 +526,14 @@ body {
 }
 
 @keyframes containerFloat {
-    0%, 100% { transform: translateY(0px) scale(1); }
-    50% { transform: translateY(-10px) scale(1.02); }
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-0.625rem) scale(1.02); }
 }
 
 @keyframes shake {
     0%, 100% { transform: translateX(0); }
-    10%, 30%, 50%, 70%, 90% { transform: translateX(-3px); }
-    20%, 40%, 60%, 80% { transform: translateX(3px); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-0.1875rem); }
+    20%, 40%, 60%, 80% { transform: translateX(0.1875rem); }
 }
 
 .input-error {
@@ -1471,8 +541,8 @@ body {
 }
 
 .block-1 {
-    width: 100px;
-    height: 100px;
+    width: 6.25rem;
+    height: 6.25rem;
     top: 10%;
     left: 10%;
     --rotation: 15deg;
@@ -1488,8 +558,8 @@ body {
 }
 
 .block-2 {
-    width: 90px;
-    height: 90px;
+    width: 5.625rem;
+    height: 5.625rem;
     top: 20%;
     right: 15%;
     --rotation: -10deg;
@@ -1504,8 +574,8 @@ body {
 }
 
 .block-3 {
-    width: 80px;
-    height: 80px;
+    width: 5rem;
+    height: 5rem;
     bottom: 20%;
     left: 5%;
     --rotation: 25deg;
@@ -1520,8 +590,8 @@ body {
 }
 
 .block-4 {
-    width: 65px;
-    height: 65px;
+    width: 4.0625rem;
+    height: 4.0625rem;
     bottom: 30%;
     right: 10%;
     --rotation: -20deg;
@@ -1536,8 +606,8 @@ body {
 }
 
 .block-5 {
-    width: 90px;
-    height: 90px;
+    width: 5.625rem;
+    height: 5.625rem;
     top: 50%;
     left: 8%;
     --rotation: 5deg;
@@ -1552,8 +622,8 @@ body {
 }
 
 .block-6 {
-    width: 70px;
-    height: 70px;
+    width: 4.375rem;
+    height: 4.375rem;
     top: 40%;
     right: 8%;
     --rotation: -15deg;
@@ -1567,28 +637,189 @@ body {
     background-position: center;
 }
 
+/* Large tablets and small desktops */
+@media (max-width: 1000px) {
+    .signup-box {
+        padding: 3rem 2.5rem;
+        min-width: auto;
+        max-width: 90%;
+    }
+    
+    .minecraft-title-image {
+        max-width: 70%;
+    }
+    
+    .sun {
+        top: 2rem;
+        right: 3rem;
+        width: 8rem;
+        height: 8rem;
+    }
+}
+
+/* Tablets */
+@media (max-width: 64rem) {
+    body {
+        align-items: flex-start;
+        padding-top: 2rem;
+    }
+    
+    .signup-box {
+        margin: 1rem;
+        padding: 2.5rem 2rem;
+    }
+    
+    .minecraft-form {
+        gap: 1.5rem;
+    }
+    
+    .sun {
+        position: absolute;
+        top: 1rem;
+        right: 2rem;
+        width: 6rem;
+        height: 6rem;
+    }
+    
+    .block {
+        display: none;
+    }
+}
+
+/* Small tablets and large phones */
+@media (max-width: 48rem) {
+    .signup-box {
+        margin: 1rem;
+        padding: 2rem 1.5rem;
+        min-width: auto;
+    }
+    
+    .minecraft-header {
+        margin-bottom: 2rem;
+    }
+    
+    .sun {
+        width: 5rem;
+        height: 5rem;
+    }
+    
+    .minecraft-input {
+        padding: 1rem 0.875rem;
+        font-size: 1.125rem;
+    }
+    
+    .minecraft-button {
+        padding: 0.625rem 1rem;
+        font-size: 1.25rem;
+    }
+}
+
+/* Medium phones */
+@media (max-width: 36rem) {
+    .signup-box {
+        margin: 0.5rem;
+        padding: 1.5rem 1rem;
+        border-radius: 0.5rem;
+    }
+    
+    .hub {
+        font-size: 2.5rem;
+    }
+    
+    .subtitle {
+        font-size: 1rem;
+    }
+    
+    .minecraft-input {
+        padding: 0.875rem 0.75rem;
+        font-size: 1rem;
+    }
+    
+    .minecraft-button {
+        padding: 0.5rem 0.875rem;
+        font-size: 1.125rem;
+        letter-spacing: 0.125rem;
+    }
+    
+    .error-message, .success-message {
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+    }
+}
+
+/* Small phones */
+@media (max-width: 24rem) {
+    body {
+        padding: 0.5rem;
+    }
+    
+    .signup-box {
+        margin: 0;
+        padding: 1.25rem 0.75rem;
+        border-radius: 0.375rem;
+    }
+    
+    .minecraft-title-image {
+        max-width: 60%;
+    }
+    
+    .hub {
+        font-size: 2rem;
+        margin-top: 0.25rem;
+    }
+    
+    .subtitle {
+        font-size: 0.875rem;
+    }
+    
+    .minecraft-form {
+        gap: 1.25rem;
+    }
+    
+    .minecraft-input {
+        padding: 0.75rem 0.625rem;
+        font-size: 0.875rem;
+    }
+    
+    .minecraft-button {
+        padding: 0.5rem 0.75rem;
+        font-size: 1rem;
+        letter-spacing: 0.0625rem;
+    }
+    
+    .login-link {
+        font-size: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .error-message, .success-message {
+        padding: 0.625rem 0.875rem;
+        font-size: 0.875rem;
+    }
+}
+
 @media (max-width: 600px) {
     .signup-box {
-        margin: 20px;
-        padding: 30px 20px;
+        margin: 1.25rem;
+        padding: 1.875rem 1.25rem;
         min-width: auto;
     }
     
     .minecraft-title {
-        font-size: 36px;
+        font-size: 2.25rem;
     }
     
     .hub {
-        font-size: 28px;
+        font-size: 1.75rem;
     }
     
     .minecraft-input {
-        font-size: 18px;
-        padding: 12px;
+        font-size: 1.125rem;
+        padding: 0.75rem;
     }
     
     .minecraft-button {
-        font-size: 20px;
-        padding: 12px 25px;
+        font-size: 1.25rem;
+        padding: 0.75rem 1.5625rem;
     }
 }
