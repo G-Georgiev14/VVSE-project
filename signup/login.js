@@ -39,7 +39,7 @@ async function start_login(){
       }, 1500);
     }
     else{
-      showLoginErrorMessage('Invalid username ro password.');
+      showLoginErrorMessage('Invalid username or password.');
     }
   }
 }
