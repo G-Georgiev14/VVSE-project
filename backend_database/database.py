@@ -3,7 +3,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from models import Base, RepoBase, CommitBase
 
-BASE_DIR = Path(__path__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent
 DATA_ROOT = BASE_DIR / "database"
 
 GLOBAL_DB_URL = f"sqlite:///{DATA_ROOT}/users.db"
