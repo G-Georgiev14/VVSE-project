@@ -551,7 +551,6 @@ body {
 }
 
 .block-1::before {
-    /* PASTE YOUR BASE64 IMAGE HERE */
     background-image: url('./images/grass.jpg');
     background-size: cover;
     background-position: center;

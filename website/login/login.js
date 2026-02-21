@@ -1,4 +1,4 @@
-import { validateInput, rules, loginUser, generateHash } from './checks.js';
+import { validateInput, rules, loginUser, generateHash } from '..checks.js';
 
 const login_btn = document.getElementById('login');
 login_btn.addEventListener('click', start_login);
@@ -35,7 +35,7 @@ async function start_login(){
       // Redirect to homepage after a short delay
       setTimeout(() => {
         console.log('Redirecting to homepage...');
-        window.location.href = '/homepage/homepage.html'
+        window.location.href = '../homepage/homepage.html'
       }, 1500);
     }
     else{
