@@ -39,7 +39,7 @@ database.init_global_database()
 
 @app.get("/")
 def home():
-    return {"message": "Server is running"}
+    return {"server": True}
 
 def get_database():
     db = database.GlobalSessionLocal()

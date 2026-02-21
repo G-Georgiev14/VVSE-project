@@ -1,11 +1,17 @@
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
+/* --- VARIABLES & RESET --- */
+:root {
+    --mc-tan: #D2B48C;
+    --mc-brown: #8B7355;
+    --mc-green: #4CAF50;
+    --mc-red: #ff5555;
+    --mc-border: #5C4033;
+    --mc-font: 'Minecraft', sans-serif;
 }
 
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
 body {
-    font-family: 'Minecraft', sans-serif;
+    font-family: var(--mc-font);
     font-weight: 200;
     background: linear-gradient(135deg, #87CEEB 0%, #98D8E8 30%, #B0E0E6 70%, #E0F6FF 100%);
     min-height: 100vh;
@@ -13,812 +19,211 @@ body {
     justify-content: center;
     align-items: center;
     overflow: hidden;
-    position: relative;
     animation: backgroundShift 10s ease-in-out infinite;
 }
 
-#sky {
-  position: relative;
-  width: 100vw;
-  height: 100vh;
-}
+/* --- ATMOSPHERE --- */
+#sky { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
 
 .sun {
-    position: fixed;
-    top: 3.125rem;
-    right: 6.25rem;
-    width: 10rem;
-    height: 10rem;
-    background: #FFD700;
-    border: 0.25rem solid #FFA500;
+    position: fixed; top: 3.125rem; right: 6.25rem;
+    width: 10rem; height: 10rem;
+    background: #FFD700; border: 0.25rem solid #FFA500;
     image-rendering: pixelated;
-    z-index: 0;
     animation: sunGlow 4s ease-in-out infinite alternate;
     box-shadow: 0 0 3.75rem rgba(255, 215, 0, 0.8);
 }
 
-#sky {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 0;
-    pointer-events: none;
-}
-
-.cloud {
-    position: absolute;
-    background: #e0e4eb;
-    height: 1.25rem;
-    width: 0;
-    display:grid;
-}
-
-.pixel{
-    width: 3.75rem;
-    height: 2.5rem;   
-    background: #FFFFFF;
-}
-
-
-
-.sun::before {
-    content: '';
-    position: absolute;
-    top: 0.5rem;
-    left: 0.5rem;
-    right: 0.5rem;
-    bottom: 0.5rem;
-    background: #FFEB3B;
-    border: 0.125rem solid #FFD700;
+.sun::before, .sun::after {
+    content: ''; position: absolute; inset: 0.5rem;
+    background: #FFEB3B; border: 0.125rem solid #FFD700;
     animation: sunPulse 3s ease-in-out infinite alternate;
 }
+.sun::after { inset: 1rem; background: #FFF59D; border: 0.0625rem solid #FFEB3B; animation-duration: 2s; }
 
-.sun::after {
-    content: '';
-    position: absolute;
-    top: 1rem;
-    left: 1rem;
-    right: 1rem;
-    bottom: 1rem;
-    background: #FFF59D;
-    border: 0.0625rem solid #FFEB3B;
-    animation: sunInnerPulse 2s ease-in-out infinite alternate;
-}
-
-/* Sunlight Spread Effect */
-.sun-rays {
-    position: absolute;
-    top: -6.25rem;
-    left: -6.25rem;
-    right: -6.25rem;
-    bottom: -6.25rem;
-    background: radial-gradient(circle, 
-        rgba(255, 215, 0, 0.4) 0%, 
-        rgba(255, 235, 59, 0.3) 20%, 
-        rgba(255, 245, 157, 0.2) 40%, 
-        rgba(255, 255, 200, 0.1) 60%, 
-        transparent 80%
-    );
+.sun-rays, .sun-rays2 {
+    position: absolute; inset: -6.25rem;
+    background: radial-gradient(circle, rgba(255, 215, 0, 0.4) 0%, transparent 80%);
     animation: sunlightSpread 6s ease-in-out infinite alternate;
 }
 
-/* Sunlight Beams */
-.sun-rays::before,
-.sun-rays::after {
-    content: '';
-    position: absolute;
-    background: linear-gradient(90deg, 
-        transparent 0%, 
-        rgba(255, 215, 0, 0.2) 30%, 
-        rgba(255, 235, 59, 0.3) 50%, 
-        rgba(255, 215, 0, 0.2) 70%, 
-        transparent 100%
-    );
-}
-
-.sun-rays::before {
-    top: 50%;
-    left: -12.5rem;
-    right: -12.5rem;
-    height: 5rem;
-    transform: translateY(-50%);
-    animation: sunlightBeam1 8s ease-in-out infinite alternate;
-}
-
-.sun-rays::after {
-    top: -12.5rem;
-    bottom: -12.5rem;
-    left: 50%;
-    width: 5rem;
-    transform: translateX(-50%);
-    animation: sunlightBeam2 8s ease-in-out infinite alternate;
-}
-
-/* Additional Light Spread */
-.sun-rays2 {
-    position: absolute;
-    top: -9.375rem;
-    left: -9.375rem;
-    right: -9.375rem;
-    bottom: -9.375rem;
-    background: radial-gradient(circle, 
-        rgba(255, 245, 157, 0.3) 0%, 
-        rgba(255, 255, 200, 0.2) 30%, 
-        rgba(255, 255, 230, 0.1) 50%, 
-        transparent 70%
-    );
-    animation: sunlightSpread2 5s ease-in-out infinite alternate-reverse;
-}
-
-@keyframes sunGlow {
-    0% { 
-        transform: scale(1);
-        box-shadow: 0 0 3.75rem rgba(255, 215, 0, 0.8);
-    }
-    100% { 
-        transform: scale(1.05);
-        box-shadow: 0 0 5rem rgba(255, 215, 0, 1);
-    }
-}
-
-@keyframes sunPulse {
-    0% { 
-        opacity: 0.9;
-        transform: scale(1);
-    }
-    100% { 
-        opacity: 1;
-        transform: scale(1.02);
-    }
-}
-
-@keyframes sunInnerPulse {
-    0% { 
-        opacity: 0.8;
-        transform: scale(1);
-    }
-    100% { 
-        opacity: 1;
-        transform: scale(1.03);
-    }
-}
-
-@keyframes sunlightSpread {
-    0% { 
-        transform: scale(1);
-        opacity: 0.6;
-    }
-    100% { 
-        transform: scale(1.3);
-        opacity: 0.9;
-    }
-}
-
-@keyframes sunlightSpread2 {
-    0% { 
-        transform: scale(1);
-        opacity: 0.4;
-    }
-    100% { 
-        transform: scale(1.5);
-        opacity: 0.7;
-    }
-}
-
-@keyframes sunlightBeam1 {
-    0% { 
-        opacity: 0.3;
-        transform: translateY(-50%) scaleY(1);
-    }
-    100% { 
-        opacity: 0.6;
-        transform: translateY(-50%) scaleY(1.5);
-    }
-}
-
-@keyframes sunlightBeam2 {
-    0% { 
-        opacity: 0.3;
-        transform: translateX(-50%) scaleX(1);
-    }
-    100% { 
-        opacity: 0.6;
-        transform: translateX(-50%) scaleX(1.5);
-    }
-}
-
-
-.minecraft-container {
-    position: relative;
-    z-index: 1;
-    
-}
-
+/* --- CONTAINER & BOX --- */
 .signup-box {
     background: linear-gradient(135deg, #8B7355 0%, #A0826D 50%, #6B5D54 100%);
-    border: 0.25rem solid #5C4033;
+    border: 0.25rem solid var(--mc-border);
     border-radius: 0.75rem;
     padding: 3.75rem 3.125rem;
-    box-shadow: 
-        0 0 0 0.25rem #6B5D54,
-        0 0 0 0.5rem #5C4033,
-        0 1.25rem 2.5rem rgba(0, 0, 0, 0.3),
-        inset 0 0.125rem 0.25rem rgba(255, 255, 255, 0.1);
+    box-shadow: 0 0 0 0.25rem #6B5D54, 0 0 0 0.5rem var(--mc-border), 0 1.25rem 2.5rem rgba(0,0,0,0.3);
     position: relative;
-    min-width: 31.25rem;
-    max-width: 37.5rem;
+    min-width: 31.25rem; max-width: 37.5rem;
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    overflow: hidden;
 }
 
 .signup-box::before {
-    content: '';
-    position: absolute;
-    top: -0.25rem;
-    left: -0.25rem;
-    right: -0.25rem;
-    bottom: -0.25rem;
-    background: repeating-linear-gradient(
-        45deg,
-        #6B5D54,
-        #6B5D54 0.625rem,
-        #5C4033 0.625rem,
-        #5C4033 1.25rem
-    );
+    content: ''; position: absolute; inset: -0.25rem;
+    background: repeating-linear-gradient(45deg, #6B5D54, #6B5D54 0.625rem, var(--mc-border) 0.625rem, var(--mc-border) 1.25rem);
     z-index: -1;
 }
 
-.minecraft-header {
-    text-align: center;
-    margin-bottom: 2.5rem;
-}
+.minecraft-title-image { max-width: 80%; display: block; margin: 0 auto 2.5rem; image-rendering: pixelated; }
 
-.minecraft-title-image {
-    max-width: 80%;
-    height: auto;
-    display: block;
-    margin: 0 auto;
-    image-rendering: pixelated;
-    image-rendering: -moz-crisp-edges;
-    image-rendering: crisp-edges;
-}
-
-.hub {
-    color: #4CAF50;
-    display: block;
-    font-size: 3rem;
-    margin-top: 0.3125rem;
-}
-
-.subtitle {
-    color: #2C2C2C;
-    font-size: 1.125rem;
-    opacity: 0.8;
-}
-
-.minecraft-form {
-    display: flex;
-    flex-direction: column;
-    gap: 1.875rem;
-}
-
-.input-group {
-    position: relative;
-}
+/* --- FORMS & INPUTS --- */
+.minecraft-form { display: flex; flex-direction: column; gap: 1.875rem; }
 
 .minecraft-input {
-    width: 100%;
-    padding: 1.125rem 1.25rem;
+    width: 100%; padding: 1.125rem 1.25rem;
     background: linear-gradient(135deg, #D2B48C 0%, #DEB887 50%, #C19A6B 100%);
     border: 0.1875rem solid #8B7355;
     border-radius: 0.375rem;
-    font-family: 'Minecraft', sans-serif;
-    font-weight: 200;
-    font-size: 1.25rem;
-    color: #2C2C2C;
+    font: 200 1.25rem var(--mc-font);
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     outline: none;
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.2);
-    overflow: hidden;
-    position: relative;
+    box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.2);
 }
 
 .minecraft-input:focus {
     background: linear-gradient(135deg, #DEB887 0%, #F5DEB3 50%, #D2B48C 100%);
-    border: 0.1875rem solid #4CAF50;
+    border-color: var(--mc-green);
     transform: translateY(-0.125rem) scale(1.02);
-    box-shadow: 0 0.75rem 1.25rem rgba(0, 0, 0, 0.3);
 }
 
-.minecraft-input::placeholder {
-    color: #5C4033;
-    opacity: 0.7;
+/* Validation Styling (New but matches theme) */
+.minecraft-input.invalid {
+    background: linear-gradient(135deg, #ff5555 0%, #aa0000 100%) !important;
+    border: 0.1875rem solid #3f0000 !important;
+    color: #ffffff !important;
+    text-shadow: 2px 2px 0px #3f0000;
+    box-shadow: 0 0.5rem 1rem rgba(170, 0, 0, 0.5) !important;
+    animation: shake 0.5s ease-in-out !important;
 }
 
-.input-border {
-    transition: transform 0.3s ease;
+.minecraft-input.invalid::placeholder{
+    color: rgba(255, 255, 255, 0.7);
 }
 
-.minecraft-input:focus + .input-border {
-    transform: scaleX(1);
-    background: #4CAF50;
+.error {
+    color: #ff5555 !important;
+    text-shadow: 2px 2px 0px #3f0000;
+    font-family: 'Minecraft', sans-serif;
+    font-size: 0.9rem;
+    display: block;
+    margin-top: 5px;
+    height: 1.2rem; /* Keep this so the box doesn't jump */
+    font-weight: bold;
 }
 
+/* --- SUCCESS STATE (Minecraft Grass/Experience Green) --- */
+.minecraft-input.valid {
+    background: linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%) !important;
+    border: 3px solid #1B5E20 !important;
+    color: white !important;
+    text-shadow: 2px 2px 0px #1B5E20;
+    box-shadow: 0 0.5rem 1rem rgba(0, 100, 0, 0.3) !important;
+}
+
+/* Ensure placeholder looks good on green background */
+.minecraft-input.valid::placeholder {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* --- BUTTON --- */
 .minecraft-button {
-    position: relative;
     background: linear-gradient(135deg, #4CAF50 0%, #45A049 50%, #388E3C 100%);
     border: 0.1875rem solid #2E7D32;
     padding: 0.75rem 1.25rem;
-    font-family: 'Minecraft', sans-serif;
-    font-weight: 200;
-    font-size: 1.5rem;
-    font-weight: bold;
-    color: white;
-    cursor: pointer;
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    text-transform: uppercase;
-    letter-spacing: 0.1875rem;
-    margin-top: 1.25rem;
+    font: bold 1.5rem var(--mc-font);
+    color: white; cursor: pointer;
+    text-transform: uppercase; letter-spacing: 0.1875rem;
     border-radius: 0.25rem;
-    box-shadow: 
-        0 0.25rem 0 #2E7D32,
-        0 0.5rem 1rem rgba(0, 0, 0, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.2);
-    overflow: hidden;
-}
-
-.minecraft-button::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, 
-        transparent 0%, 
-        rgba(255, 255, 255, 0.2) 50%, 
-        transparent 100%);
-    transition: left 0.6s ease;
+    box-shadow: 0 0.25rem 0 #2E7D32, 0 0.5rem 1rem rgba(0,0,0,0.3);
+    position: relative; overflow: hidden; transition: var(--mc-transition);
 }
 
 .minecraft-button:hover {
     background: linear-gradient(135deg, #66BB6A 0%, #4CAF50 50%, #43A047 100%);
     transform: translateY(-0.1875rem) scale(1.05);
-    box-shadow: 
-        0 0.4375rem 0 #2E7D32,
-        0 0.75rem 1.25rem rgba(0, 0, 0, 0.4),
-        inset 0 0.0625rem 0 rgba(255, 255, 255, 0.3);
     padding: 0.9375rem 2.1875rem;
     letter-spacing: 0.25rem;
+    box-shadow: 0 0.4375rem 0 #2E7D32, 0 0.75rem 1.25rem rgba(0,0,0,0.4);
 }
 
-.minecraft-button:hover::before {
-    left: 100%;
-}
+.minecraft-button:active { transform: translateY(-0.0625rem) scale(1.02); box-shadow: 0 0.125rem 0 #2E7D32; }
 
-.minecraft-button:active {
-    transform: translateY(-0.0625rem) scale(1.02);
-    box-shadow: 
-        0 0.125rem 0 #2E7D32,
-        0 0.25rem 0.5rem rgba(0, 0, 0, 0.3),
-        inset 0 0.0625rem 0 rgba(255, 255, 255, 0.1);
-    transition: all 0.1s ease-in-out;
-}
-
-.button-text {
-    position: relative;
-    z-index: 2;
-    font-weight: 100;
-}
-
-.button-border {
-    position: absolute;
-    top: -0.1875rem;
-    left: -0.1875rem;
-    right: -0.1875rem;
-    bottom: -0.1875rem;
-    z-index: -1;
-}
-
-.login-link {
-    text-align: center;
-    margin-top: 1.25rem;
-    color: #2C2C2C;
-    font-size: 1.125rem;
-}
-
-.minecraft-link {
-    color: #4CAF50;
-    text-decoration: none;
-    font-weight: bold;
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    text-shadow: 0 0.125rem 0.25rem rgba(76, 175, 80, 0.3);
-    position: relative;
-    display: inline-block;
-    padding: 0.125rem 0.25rem;
-    border-radius: 0.1875rem;
-}
-
-.minecraft-link:hover {
-    color: #66BB6A;
-    text-decoration: none;
-    transform: translateY(-0.125rem) scale(1.05);
-    text-shadow: 0 0.25rem 0.5rem rgba(76, 175, 80, 0.4);
-}
+/* --- LINKS & MESSAGES --- */
+.login-link { text-align: center; margin-top: 1.25rem; }
+.minecraft-link { color: var(--mc-green); text-decoration: none; font-weight: bold; transition: 0.4s; }
+.minecraft-link:hover { color: #66BB6A; transform: translateY(-2px); display: inline-block; }
 
 .error-message, .success-message {
-    text-align: center;
-    padding: 0.9375rem 1.25rem;
-    margin-top: 1.25rem;
-    border-radius: 0.5rem;
-    font-size: 1.125rem;
-    display: none;
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    position: relative;
-    overflow: hidden;
+    text-align: center; padding: 0.9375rem 1.25rem; margin-top: 1.25rem;
+    border-radius: 0.5rem; display: none;
 }
+.error-message { background: #8B4513; border: 3px solid #654321; color: #FFE4B5; }
+.success-message { background: var(--mc-green); border: 3px solid #2E7D32; color: white; }
 
-.error-message {
-    background: linear-gradient(135deg, #8B4513 0%, #A0522D 50%, #8B4513 100%);
-    border: 0.1875rem solid #654321;
-    color: #FFE4B5;
-    box-shadow: 
-        0 0.25rem 0 #654321,
-        0 0.5rem 1rem rgba(0, 0, 0, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.2);
-}
-
-.success-message {
-    background: linear-gradient(135deg, #4CAF50 0%, #66BB6A 50%, #43A047 100%);
-    border: 0.1875rem solid #2E7D32;
-    color: white;
-    box-shadow: 
-        0 0.25rem 0 #2E7D32,
-        0 0.5rem 1rem rgba(0, 0, 0, 0.3),
-        inset 0 0.0625rem 0 rgba(255, 255, 255, 0.3);
-}
-
-.minecraft-background {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 1;
-    pointer-events: none;
-}
-
+/* --- FLOATING BLOCKS --- */
+/* --- FLOATING BLOCKS --- */
 .block {
     position: absolute;
-    background: #8B7355;
-    border: none;
     animation: float 6s ease-in-out infinite;
-    image-rendering: pixelated;
-    image-rendering: -moz-crisp-edges;
-    image-rendering: crisp-edges;
+    image-rendering: pixelated; /* Keeps the Minecraft textures sharp */
     box-shadow: 0 0.25rem 0.5rem rgba(0,0,0,0.3);
     overflow: hidden;
     z-index: 5;
 }
 
+/* This part applies to ALL block images */
 .block::before {
     content: '';
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0; /* Fills the whole block */
+    background-size: cover;
+    background-position: center;
     pointer-events: none;
-    background-size: 1rem 1rem;
-    background-repeat: repeat;
 }
 
-@keyframes float {
-    0%, 100% { transform: translateY(0) rotate(var(--rotation, 0deg)); }
-    50% { transform: translateY(-1.25rem) rotate(var(--rotation, 0deg)); }
-}
+/* Block 1: Grass */
+.block-1 { width: 6.25rem; height: 6.25rem; top: 10%; left: 10%; background: #7CB342; }
+.block-1::before { background-image: url('./images/grass.jpg'); }
 
-@keyframes backgroundShift {
-    0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-}
+/* Block 2: Cobblestone */
+.block-2 { width: 5.625rem; height: 5.625rem; top: 20%; right: 15%; background: #9E9E9E; animation-delay: 1s; }
+.block-2::before { background-image: url('./images/cobblestone.jpg'); }
 
-@keyframes containerFloat {
-    0%, 100% { transform: translateY(0) scale(1); }
-    50% { transform: translateY(-0.625rem) scale(1.02); }
-}
+/* Block 3: Oak Wood */
+.block-3 { width: 5rem; height: 5rem; bottom: 20%; left: 5%; background: #8D6E63; animation-delay: 2s; }
+.block-3::before { background-image: url('./images/oak.jpg'); }
 
-@keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    10%, 30%, 50%, 70%, 90% { transform: translateX(-0.1875rem); }
-    20%, 40%, 60%, 80% { transform: translateX(0.1875rem); }
-}
+/* Block 4: Furnace (Animated GIF) */
+.block-4 { width: 4.0625rem; height: 4.0625rem; bottom: 30%; right: 10%; background: #8B7355; animation-delay: 3s; }
+.block-4::before { background-image: url('./images/furnace_gif.gif'); }
 
-.input-error {
-    animation: shake 0.5s ease-in-out;
-}
+/* Block 5: Diamond Ore */
+.block-5 { width: 5.625rem; height: 5.625rem; top: 50%; left: 8%; background: #795548; animation-delay: 4s; }
+.block-5::before { background-image: url('./images/diamond.jpg'); }
 
-.block-1 {
-    width: 6.25rem;
-    height: 6.25rem;
-    top: 10%;
-    left: 10%;
-    --rotation: 15deg;
-    animation-delay: 0s;
-    background: #7CB342;
-}
+/* Block 6: Enchanted Book (Animated GIF) */
+.block-6 { width: 4.375rem; height: 4.375rem; top: 40%; right: 8%; background: #424242; animation-delay: 5s; }
+.block-6::before { background-image: url('./images/kniga.gif'); }
 
-.block-1::before {
-    background-image: url('./images/grass.jpg');
-    background-size: cover;
-    background-position: center;
-}
 
-.block-2 {
-    width: 5.625rem;
-    height: 5.625rem;
-    top: 20%;
-    right: 15%;
-    --rotation: -10deg;
-    animation-delay: 1s;
-    background: #9E9E9E;
-}
+/* --- ANIMATIONS --- */
+@keyframes backgroundShift { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+@keyframes sunGlow { 0% { transform: scale(1); box-shadow: 0 0 3.75rem rgba(255, 215, 0, 0.8); } 100% { transform: scale(1.05); box-shadow: 0 0 5rem rgba(255,215,0,1); } }
+@keyframes sunPulse { 0% { opacity: 0.9; transform: scale(1); } 100% { opacity: 1; transform: scale(1.02); } }
+@keyframes float { 0%, 100% { transform: translateY(0) rotate(var(--rotation, 5deg)); } 50% { transform: translateY(-1.25rem) rotate(var(--rotation, -5deg)); } }
+@keyframes shake { 0%, 100% { transform: translateX(0); } 10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); } 20%, 40%, 60%, 80% { transform: translateX(5px); } }
 
-.block-2::before {
-    background-image: url('./images/cobblestone.jpg');  
-    background-size: cover;
-    background-position: center;
-}
-
-.block-3 {
-    width: 5rem;
-    height: 5rem;
-    bottom: 20%;
-    left: 5%;
-    --rotation: 25deg;
-    animation-delay: 2s;
-    background: #8D6E63;
-}
-
-.block-3::before {
-    background-image: url('./images/oak.jpg');
-    background-size: cover;
-    background-position: center;
-}
-
-.block-4 {
-    width: 4.0625rem;
-    height: 4.0625rem;
-    bottom: 30%;
-    right: 10%;
-    --rotation: -20deg;
-    animation-delay: 3s;
-    background: #8B7355;
-}
-
-.block-4::before {
-    background-image: url('./images/furnace_gif.gif');
-    background-size: cover;
-    background-position: center;
-}
-
-.block-5 {
-    width: 5.625rem;
-    height: 5.625rem;
-    top: 50%;
-    left: 8%;
-    --rotation: 5deg;
-    animation-delay: 4s;
-    background: #795548;
-}
-
-.block-5::before {
-    background-image: url('./images/diamond.jpg');
-    background-size: cover;
-    background-position: center;
-}
-
-.block-6 {
-    width: 4.375rem;
-    height: 4.375rem;
-    top: 40%;
-    right: 8%;
-    --rotation: -15deg;
-    animation-delay: 5s;
-    background: #424242;
-}
-
-.block-6::before {
-    background-image: url('./images/kniga.gif');
-    background-size: cover;
-    background-position: center;
-}
-
-/* Large tablets and small desktops */
-@media (max-width: 1000px) {
-    .signup-box {
-        padding: 3rem 2.5rem;
-        min-width: auto;
-        max-width: 90%;
-    }
-    
-    .minecraft-title-image {
-        max-width: 70%;
-    }
-    
-    .sun {
-        top: 2rem;
-        right: 3rem;
-        width: 8rem;
-        height: 8rem;
-    }
-}
-
-/* Tablets */
+/* --- RESPONSIVENESS --- */
 @media (max-width: 64rem) {
-    body {
-        align-items: flex-start;
-        padding-top: 2rem;
-    }
-    
-    .signup-box {
-        margin: 1rem;
-        padding: 2.5rem 2rem;
-    }
-    
-    .minecraft-form {
-        gap: 1.5rem;
-    }
-    
-    .sun {
-        position: absolute;
-        top: 1rem;
-        right: 2rem;
-        width: 6rem;
-        height: 6rem;
-    }
-    
-    .block {
-        display: none;
-    }
+    body { align-items: flex-start; padding-top: 2rem; overflow-y: auto; }
+    .signup-box { margin: 1rem; padding: 2.5rem 2rem; min-width: auto; }
+    .sun { top: 1rem; right: 2rem; width: 6rem; height: 6rem; }
+    .block { display: none; }
 }
 
-/* Small tablets and large phones */
-@media (max-width: 48rem) {
-    .signup-box {
-        margin: 1rem;
-        padding: 2rem 1.5rem;
-        min-width: auto;
-    }
-    
-    .minecraft-header {
-        margin-bottom: 2rem;
-    }
-    
-    .sun {
-        width: 5rem;
-        height: 5rem;
-    }
-    
-    .minecraft-input {
-        padding: 1rem 0.875rem;
-        font-size: 1.125rem;
-    }
-    
-    .minecraft-button {
-        padding: 0.625rem 1rem;
-        font-size: 1.25rem;
-    }
-}
-
-/* Medium phones */
 @media (max-width: 36rem) {
-    .signup-box {
-        margin: 0.5rem;
-        padding: 1.5rem 1rem;
-        border-radius: 0.5rem;
-    }
-    
-    .hub {
-        font-size: 2.5rem;
-    }
-    
-    .subtitle {
-        font-size: 1rem;
-    }
-    
-    .minecraft-input {
-        padding: 0.875rem 0.75rem;
-        font-size: 1rem;
-    }
-    
-    .minecraft-button {
-        padding: 0.5rem 0.875rem;
-        font-size: 1.125rem;
-        letter-spacing: 0.125rem;
-    }
-    
-    .error-message, .success-message {
-        padding: 0.75rem 1rem;
-        font-size: 1rem;
-    }
-}
-
-/* Small phones */
-@media (max-width: 24rem) {
-    body {
-        padding: 0.5rem;
-    }
-    
-    .signup-box {
-        margin: 0;
-        padding: 1.25rem 0.75rem;
-        border-radius: 0.375rem;
-    }
-    
-    .minecraft-title-image {
-        max-width: 60%;
-    }
-    
-    .hub {
-        font-size: 2rem;
-        margin-top: 0.25rem;
-    }
-    
-    .subtitle {
-        font-size: 0.875rem;
-    }
-    
-    .minecraft-form {
-        gap: 1.25rem;
-    }
-    
-    .minecraft-input {
-        padding: 0.75rem 0.625rem;
-        font-size: 0.875rem;
-    }
-    
-    .minecraft-button {
-        padding: 0.5rem 0.75rem;
-        font-size: 1rem;
-        letter-spacing: 0.0625rem;
-    }
-    
-    .login-link {
-        font-size: 1rem;
-        margin-top: 1rem;
-    }
-    
-    .error-message, .success-message {
-        padding: 0.625rem 0.875rem;
-        font-size: 0.875rem;
-    }
-}
-
-@media (max-width: 600px) {
-    .signup-box {
-        margin: 1.25rem;
-        padding: 1.875rem 1.25rem;
-        min-width: auto;
-    }
-    
-    .minecraft-title {
-        font-size: 2.25rem;
-    }
-    
-    .hub {
-        font-size: 1.75rem;
-    }
-    
-    .minecraft-input {
-        font-size: 1.125rem;
-        padding: 0.75rem;
-    }
-    
-    .minecraft-button {
-        font-size: 1.25rem;
-        padding: 0.75rem 1.5625rem;
-    }
+    .signup-box { padding: 1.5rem 1rem; }
+    .minecraft-input { font-size: 1rem; }
+    .minecraft-button { font-size: 1.125rem; letter-spacing: 0.125rem; }
 }
