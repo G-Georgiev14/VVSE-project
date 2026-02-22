@@ -200,8 +200,7 @@ body {
     position: absolute;
     animation: float 6s ease-in-out infinite;
     image-rendering: pixelated; /* Keeps the Minecraft textures sharp */
-    box-shadow: 0 0.25rem 0.5rem rgba(0,0,0,0.3);
-    overflow: hidden;
+    filter: drop-shadow(0 0.25rem 0.5rem rgba(0, 0, 0, 0.5));
     z-index: 5;
 }
 
@@ -216,28 +215,28 @@ body {
 }
 
 /* Block 1: Grass */
-.block-1 { width: 6.25rem; height: 6.25rem; top: 10%; left: 10%; background: #7CB342; }
-.block-1::before { background-image: url('./images/grass.jpg'); }
+.block-1 { width: 6.25rem; height: 6.25rem; top: 10%; left: 10%; }
+.block-1::before { background-image: url('./images/grassBlock.png'); }
 
 /* Block 2: Cobblestone */
-.block-2 { width: 5.625rem; height: 5.625rem; top: 20%; right: 15%; background: #9E9E9E; animation-delay: 1s; }
-.block-2::before { background-image: url('./images/cobblestone.jpg'); }
+.block-2 { width: 5.625rem; height: 5.625rem; top: 20%; right: 15%; animation-delay: 1s; }
+.block-2::before { background-image: url('./images/cobblestone.png'); }
 
 /* Block 3: Oak Wood */
-.block-3 { width: 5rem; height: 5rem; bottom: 20%; left: 5%; background: #8D6E63; animation-delay: 2s; }
-.block-3::before { background-image: url('./images/oak.jpg'); }
+.block-3 { width: 5rem; height: 5rem; bottom: 20%; left: 5%; animation-delay: 2s; }
+.block-3::before { background-image: url('./images/oakLog.png'); }
 
 /* Block 4: Furnace (Animated GIF) */
-.block-4 { width: 4.0625rem; height: 4.0625rem; bottom: 30%; right: 10%; background: #8B7355; animation-delay: 3s; }
-.block-4::before { background-image: url('./images/furnace_gif.gif'); }
+.block-4 { width: 6.0625rem; height: 6.0625rem; bottom: 30%; right: 10%; animation-delay: 3s; }
+.block-4::before { background-image: url('./images/furnace.gif'); }
 
 /* Block 5: Diamond Ore */
-.block-5 { width: 5.625rem; height: 5.625rem; top: 50%; left: 8%; background: #795548; animation-delay: 4s; }
-.block-5::before { background-image: url('./images/diamond.jpg'); }
+.block-5 { width: 5.625rem; height: 5.625rem; top: 50%; left: 8%; animation-delay: 4s; }
+.block-5::before { background-image: url('./images/diamondOre.png'); }
 
 /* Block 6: Enchanted Book (Animated GIF) */
-.block-6 { width: 4.375rem; height: 4.375rem; top: 40%; right: 8%; background: #424242; animation-delay: 5s; }
-.block-6::before { background-image: url('./images/kniga.gif'); }
+.block-6 { width: 6.375rem; height: 6.375rem; top: 40%; right: 8%; animation-delay: 5s; }
+.block-6::before { background-image: url('./images/bookshelf.gif'); }
 
 /* --- ANIMATIONS --- */
 @keyframes backgroundShift { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
