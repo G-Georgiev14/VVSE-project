@@ -22,7 +22,7 @@ class Repo(Base):
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String)
-    user_id = Column(Integer)
+    creator_id = Column(Integer)
 
 class RepoMetadata(RepoBase):
     __tablename__ = "commit_history"

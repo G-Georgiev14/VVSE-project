@@ -61,6 +61,8 @@ def create_user(user_data: UserCreate,
         raise HTTPException(status_code=400, detail="Username or Email already exist")
     
     new_uuid = str(uuid.uuid4())
+    while db.query(exists().where(models.User.uuid == new_uuid)).scalar():
+        new_uuid = str(uuid.uuid4())
 
     user = models.User(
         username=user_data.username,
@@ -151,7 +153,7 @@ def get_log(username: str, repo_name: str):
     meta_database.close()
 
     return history
-
+#↓USELESS MAYBE??????????
 @app.get("/users/exists")
 def check_user_exists(username: str,
                       email: str,
@@ -167,6 +169,7 @@ def check_user_exists(username: str,
         return {"email": True}
 
     return {"exists": False}
+#↑USELESS MAYBE??????????
 
 @app.post("/login")
 def login(request: LoginRequest, db: Session = Depends(get_database)):
@@ -185,10 +188,6 @@ def login(request: LoginRequest, db: Session = Depends(get_database)):
         "uuid": user.uuid
     }
 
-@app.get("/users/uuid")
-def check_for_valid_uuid(uuid: str, db: Session = Depends(get_database)):
-    return db.query(exists().where(models.User.uuid == uuid)).scalar()
-     
 if __name__ == "__main__":
 
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
