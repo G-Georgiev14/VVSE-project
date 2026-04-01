@@ -40,6 +40,53 @@ export function checkIfFieldsAreFilledRight(form){
 		if(errorSpan) errorSpan.textContent = error;
 	});
 
-
 	return isAllValid;
+}
+
+async function canConnectToServer(){
+	const URL = `${DATABASE_API_URL}/db-check`;
+	try{
+		const response = await fetch(URL, { method: 'GET', node: 'cors'});
+		if(response.ok) return true;
+		else return false;
+	}
+
+	catch(error){
+		return false;
+	}
+}
+
+export function displayMessage(type, message){
+	const successDisplay = document.getElementById("successMessage");
+	const errorDisplay = document.getElementById("errorMessage");
+
+	successDisplay.textContent = "";
+	errorDisplay.textContent = "";
+	successDisplay.style.display = "none";
+	errorDisplay.style.display = "none";
+
+	if (type === "success"){
+		successDisplay.textContent = message;
+		successDisplay.style.display = "block";
+	}
+
+	else if (type === "error"){
+		errorDisplay.textContent = message;
+		errorDisplay.style.display = "block";
+	}
+
+	else alert("criticalError");
+}
+
+
+export async function checkIfUserExists(form){
+	console.log(canConnectToServer());
+	if(canConnectToServer()){
+		const user = form.querySelectorAll("input");
+
+	}
+
+	else{
+		alert("Cannot connect to server");
+	}
 }

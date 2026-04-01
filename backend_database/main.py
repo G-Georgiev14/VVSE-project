@@ -28,18 +28,26 @@ class LoginRequest(BaseModel):
     username: str
     password: str
 
+class CheckRequest(BaseModel):
+    username: str
+    email: str
+
 app = FastAPI()
 
-app.add_middleware(CORSMiddleware, 
-                   allow_origins=["*"],
-                   allow_methods=["*"],
-                   allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, 
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
 
 database.init_global_database()
 
-@app.get("/")
-def home():
+
+@app.get("/db-check")
+def db_check():
     return {"server": True}
+
 
 def get_database():
     db = database.GlobalSessionLocal()
@@ -47,6 +55,7 @@ def get_database():
         yield db
     finally:
         db.close()
+
 
 @app.post("/users")
 def create_user(user_data: UserCreate,
@@ -75,6 +84,7 @@ def create_user(user_data: UserCreate,
     db.refresh(user)
 
     return {"status": "success", "username": user.username, "minecraft_username": user.minecraft_username, "uuid": user.uuid}
+
 
 @app.post("/users/{username}/{repo_name}/commit")
 def create_commit(username: str,
@@ -116,6 +126,7 @@ def create_commit(username: str,
 
     return {"status": "committed", "commit_name": commit_name, "hash": commit_hash}
 
+
 @app.post("/users/{username}/{repo_name}/reset-hard")
 def reset_hard(username: str,
                repo_name: str, 
@@ -143,6 +154,7 @@ def reset_hard(username: str,
 
     return {"message": f"Hard reset to {target_hash}"}
 
+
 @app.get("/users/{username}/{repo_name}/log")
 def get_log(username: str, repo_name: str):
 
@@ -152,21 +164,22 @@ def get_log(username: str, repo_name: str):
 
     return history
 
+
 @app.get("/users/exists")
-def check_user_exists(username: str,
-                      email: str,
+def check_user_exists(check_user: CheckRequest,
                       db: Session = Depends(get_database)):
     
-    user_name_exists = db.query(exists().where(models.User.username == username)).scalar()
+    user_name_exists = db.query(exists().where(models.User.username == check_user.username)).scalar()
 
     if user_name_exists:
         return {"name": True}
     
-    user_email_exists = db.query(exists().where(models.User.email == email)).scalar()
+    user_email_exists = db.query(exists().where(models.User.email == check_user.email)).scalar()
     if user_email_exists:
         return {"email": True}
 
     return {"exists": False}
+
 
 @app.post("/login")
 def login(request: LoginRequest, db: Session = Depends(get_database)):

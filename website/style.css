@@ -8,12 +8,12 @@
     --mc-font: 'Minecraft', sans-serif;
 }
 
-* { margin: 0; padding: 0; box-sizing: border-box; }
+* { margin: 0; padding: 0; box-sizing: border-box; image-rendering: pixelated; }
 
 body {
     font-family: var(--mc-font);
     font-weight: 200;
-    background: linear-gradient(135deg, #87CEEB 0%, #98D8E8 30%, #B0E0E6 70%, #E0F6FF 100%);
+    background: linear-gradient(135deg, #3fa3ca 0%, #76d3eb 30%, #B0E0E6 70%, #9ad0e6 100%);
     min-height: 100vh;
     display: flex;
     justify-content: center;
@@ -199,7 +199,6 @@ body {
 .block {
     position: absolute;
     animation: float 6s ease-in-out infinite;
-    image-rendering: pixelated; /* Keeps the Minecraft textures sharp */
     filter: drop-shadow(0 0.25rem 0.5rem rgba(0, 0, 0, 0.5));
     z-index: 5;
 }
