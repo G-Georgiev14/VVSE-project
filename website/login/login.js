@@ -1,65 +1,78 @@
-import { validateInput, rules, loginUser, generateHash } from '..checks.js';
+import { validateLoginForm, loginUser, generateHash, displayMessage, validateSingleLoginField } from '../checks.js';
 
-const login_btn = document.getElementById('login');
-login_btn.addEventListener('click', start_login);
+const loginForm = document.getElementById('loginform');
 
-// Set up validation for login inputs
-validateInput('loginUsername', rules.username, 'loginUsernameError', 'Invalid username format.');
-validateInput('loginPassword', rules.password, 'loginPasswordError', 'Password must be 8-30 characters with uppercase, lowercase, and numbers.');
+// Handle login form submission
+async function handleLogin(event) {
+	event.preventDefault();
 
-async function start_login(){
-  const usernameInput = document.getElementById('loginUsername');
-  const passwordInput = document.getElementById('loginPassword');
+	// Validate entire form
+	const validation = validateLoginForm(loginForm);
 
-  // Validate all inputs on button click
-  const isUsernameValid = usernameInput.validateOnClick();
-  const isPasswordValid = passwordInput.validateOnClick();
+	if (!validation.isValid) {
+		return;
+	}
 
-  // Only proceed if all inputs are valid
-  if (isUsernameValid && isPasswordValid) {
-    
-    const hashedPassword = await generateHash(usernameInput.value, passwordInput.value);
+	// Get form values
+	const usernameInput = document.getElementById('loginUsername');
+	const passwordInput = document.getElementById('loginPassword');
 
-    const result = await loginUser(usernameInput.value, hashedPassword);
+	const username = usernameInput.value.trim();
+	const password = passwordInput.value;
 
-    if (result && !result.error){
-      console.log('Login successful for user:', result.username);
-      console.log('Login result:', result);
-      showLoginSuccessMessage(`Login successful! Welcome back, ${result.minecraft_username}!`);
-      
-      // Store authentication data
-      localStorage.setItem('authToken', result.uuid);
-      localStorage.setItem('username', result.username);
-      localStorage.setItem('minecraftUsername', result.minecraft_username);
-      
-      // Redirect to homepage after a short delay
-      setTimeout(() => {
-        console.log('Redirecting to homepage...');
-        window.location.href = '../homepage/homepage.html'
-      }, 1500);
-    }
-    else{
-      showLoginErrorMessage('Invalid username or password.');
-    }
-  }
+	try {
+		// Generate password hash
+		const hashedPassword = await generateHash(username, password);
+
+		// Attempt login
+		const result = await loginUser(username, hashedPassword);
+
+		if (result && !result.error) {
+			// Show success message
+			displayMessage("success", `Login successful! Welcome back, ${result.minecraft_username}!`);
+			
+			// Store authentication data
+			localStorage.setItem('authToken', result.uuid);
+			localStorage.setItem('username', result.username);
+			localStorage.setItem('minecraftUsername', result.minecraft_username);
+			
+			// Redirect to homepage after a short delay
+			setTimeout(() => {
+				window.location.href = '../homepage/homepage.html';
+			}, 1500);
+		} else {
+			// Show error message
+			const errorMessage = result?.error || 'Invalid username or password.';
+			displayMessage("error", errorMessage);
+		}
+	} catch (error) {
+		console.error('Login error:', error);
+		displayMessage("error", "Login failed. Please try again later.");
+	}
 }
 
-function showLoginSuccessMessage(message) {
-  const successDiv = document.getElementById('loginSuccessMessage');
-  successDiv.textContent = message;
-  successDiv.style.display = 'block';
-  setTimeout(() => {
-    successDiv.style.display = 'none';
-  }, 5000);
-}
+// Add event listeners when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+	// Add submit event listener to form
+	loginForm.addEventListener('submit', handleLogin);
 
-function showLoginErrorMessage(message) {
-  const errorDiv = document.getElementById('loginErrorMessage');
-  errorDiv.textContent = message;
-  errorDiv.style.display = 'block';
-  setTimeout(() => {
-    errorDiv.style.display = 'none';
-  }, 5000);
-}
+	// Add real-time validation for each field
+	const fields = ['loginUsername', 'loginPassword'];
+
+	fields.forEach(fieldId => {
+		const input = document.getElementById(fieldId);
+		if (input) {
+			// Validate as user types
+			input.addEventListener('input', () => {
+				validateSingleLoginField(fieldId);
+			});
+			
+			// Validate when field loses focus
+			input.addEventListener('blur', () => {
+				validateSingleLoginField(fieldId);
+			});
+		}
+	});
+});
 
 

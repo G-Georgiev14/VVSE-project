@@ -1,5 +1,6 @@
 import uvicorn
 import os
+import hashlib
 from fastapi import FastAPI, Depends, HTTPException, Body
 from sqlalchemy import exists, and_
 from sqlalchemy.orm import Session
@@ -44,6 +45,13 @@ app.add_middleware(
 database.init_global_database()
 
 
+def generate_hash(username: str, password: str) -> str:
+    """Generate SHA-256 hash of username + password (same as frontend)"""
+    data = (username + password).encode('utf-8')
+    hash_object = hashlib.sha256(data)
+    return hash_object.hexdigest()
+
+
 @app.get("/db-check")
 def db_check():
     return {"server": True}
@@ -73,10 +81,12 @@ def create_user(user_data: UserCreate,
     while db.query(exists().where(models.User.uuid == new_uuid)).scalar():
         new_uuid = str(uuid.uuid4())
 
+    hashed_password = generate_hash(user_data.username, user_data.password)
+    
     user = models.User(
         username=user_data.username,
         email=user_data.email,
-        password=user_data.password, 
+        password=hashed_password, 
         minecraft_username=user_data.minecraft_username,
         uuid=new_uuid
     )
@@ -189,6 +199,7 @@ def login(request: LoginRequest, db: Session = Depends(get_database)):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
+    # Frontend already sends hashed password, compare directly with stored hash
     if user.password != request.password:
         raise HTTPException(status_code=401, detail="Invalid password")
     

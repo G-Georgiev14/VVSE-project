@@ -122,11 +122,7 @@ body {
 
 /* Validation Styling (New but matches theme) */
 .minecraft-input.invalid {
-    background: linear-gradient(135deg, #ff5555 0%, #aa0000 100%) !important;
-    border: 0.1875rem solid #3f0000 !important;
-    color: #ffffff !important;
-    text-shadow: 2px 2px 0px #3f0000;
-    box-shadow: 0 0.5rem 1rem rgba(170, 0, 0, 0.5) !important;
+    border: 3px solid red !important;
     animation: shake 0.5s ease-in-out !important;
 }
 
@@ -147,11 +143,7 @@ body {
 
 /* --- SUCCESS STATE (Minecraft Grass/Experience Green) --- */
 .minecraft-input.valid {
-    background: linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%) !important;
-    border: 3px solid #1B5E20 !important;
-    color: white !important;
-    text-shadow: 2px 2px 0px #1B5E20;
-    box-shadow: 0 0.5rem 1rem rgba(0, 100, 0, 0.3) !important;
+    border: 3px solid #4CAF50 !important;
 }
 
 /* Ensure placeholder looks good on green background */
@@ -191,8 +183,8 @@ body {
     text-align: center; padding: 0.9375rem 1.25rem; margin-top: 1.25rem;
     border-radius: 0.5rem; display: none;
 }
-.error-message { background: #8B4513; border: 3px solid #654321; color: #FFE4B5; }
-.success-message { background: var(--mc-green); border: 3px solid #2E7D32; color: white; }
+.error-message { color: #FFE4B5; }
+.success-message { color: white; }
 
 /* --- FLOATING BLOCKS --- */
 /* --- FLOATING BLOCKS --- */
