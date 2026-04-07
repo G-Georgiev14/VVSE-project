@@ -1,0 +1,13 @@
+{
+  "itemGroup.gitbuild": "Example Mod Tab",
+  "block.gitbuild.example_block": "Example Block",
+  "item.gitbuild.example_item": "Example Item",
+
+  "gitbuild.configuration.title": "gitbuild Configs",
+  "gitbuild.configuration.section.gitbuild.common.toml": "gitbuild Configs",
+  "gitbuild.configuration.section.gitbuild.common.toml.title": "gitbuild Configs",
+  "gitbuild.configuration.items": "Item List",
+  "gitbuild.configuration.logDirtBlock": "Log Dirt Block",
+  "gitbuild.configuration.magicNumberIntroduction": "Magic Number Text",
+  "gitbuild.configuration.magicNumber": "Magic Number"
+}
