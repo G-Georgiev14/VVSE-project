@@ -18,6 +18,13 @@ Implement a Git-like version control system for Minecraft builds, modeled after 
 - Staging area management (client-side)
 - World modification capabilities for revert/clone
 
+**Website (HTML/CSS/JS):**
+- User authentication (login/signup)
+- Repository browser
+- Commit history viewer
+- 3D block visualization (three.js)
+- Public repository exploration
+
 ## Backend API Extensions Needed
 
 ### Repository Management
@@ -91,13 +98,56 @@ Implement a Git-like version control system for Minecraft builds, modeled after 
 -- Need: Better block storage (compressed chunks)
 ```
 
+## Website Requirements
+
+**Existing Pages:**
+- `@c:\Users\leoaq\Documents\GitHub\VVSE-project\website\login\login.html` - User login
+- `@c:\Users\leoaq\Documents\GitHub\VVSE-project\website\signup\signup.html` - User registration
+- `@c:\Users\leoaq\Documents\GitHub\VVSE-project\website\homepage\homepage.html` - User dashboard
+
+**Pages to Add:**
+
+### Repository Browser
+- List all user repositories (like GitHub profile)
+- Show repository stats (commits, last modified)
+- Create new repository button
+- Delete repository option
+
+### Commit History Viewer
+- `/repo/{username}/{repo_name}` - Repository detail page
+- List all commits with hash, message, timestamp
+- Click commit to view 3D block preview
+- Download/clone button
+
+### Commit 3D Viewer
+- `/commit/{username}/{repo_name}/{commit_hash}`
+- Render blocks in 3D (three.js or similar)
+- Rotate, zoom, pan controls
+- Block count, dimensions info
+- Export to schematic/Litematica
+
+### Public Repository Search
+- `/explore` - Browse public repositories
+- Search by username/repo name
+- Filter by most recent, most blocks, etc.
+
+
+**Frontend Features:**
+- JavaScript `checks.js` connects to `http://127.0.0.1:8000`
+- Add repository API calls to `checks.js`:
+  - `createRepo()`, `listRepos()`, `deleteRepo()`
+  - `getCommits()`, `getCommitBlocks()`
+  - `pushRepo()`, `pullRepo()`, `cloneRepo()`
+
 ## Implementation Phases
 
 1. **Backend Foundation** - Extend API for all operations
 2. **Repository & Staging** - Mod commands for init, add, status
 3. **Commit & History** - Commit, log, revert implementation
 4. **Remote Operations** - Push, pull, clone, fetch
-5. **Integration** - Connect mod to backend, test end-to-end
+5. **Website - Repository Browser** - Add repo list and create pages
+6. **Website - Commit Viewer** - 3D block visualization
+7. **Integration** - Connect mod to backend, test end-to-end
 
 ## Key Technical Decisions
 
