@@ -17,6 +17,7 @@ Implement a Git-like version control system for Minecraft builds, modeled after 
 - HTTP client for backend communication
 - Staging area management (client-side)
 - World modification capabilities for revert/clone
+- Ghost block preview system for clone
 
 **Website (HTML/CSS/JS):**
 - User authentication (login/signup)
@@ -110,6 +111,7 @@ Implement a Git-like version control system for Minecraft builds, modeled after 
    - Show message: "§eGhost preview active. Type /git confirm to apply or /git cancel to abort"
    - Store pending clone in `PlayerSession.pendingClone`
    - Include: source username, source repo, new repo name, block offsets
+   - 
 
 5. **New commands:**
    - `/git confirm` - Apply the ghost preview to world
