@@ -75,6 +75,58 @@ Implement a Git-like version control system for Minecraft builds, modeled after 
 - `/git clone <name> <url>` - Clone repo and apply to world
 - `/git auth <username> [password]` - Store credentials
 
+### Clone with Ghost Preview (TODO)
+**Feature:** `/git clone <name> <url>` should show a ghost preview before applying
+
+**Implementation Steps:**
+
+1. **Modify clone command flow:**
+   - Parse `username/repo` from URL
+   - Fetch HEAD commit blocks from backend API
+   - Don't clone repo metadata yet - just preview
+
+2. **Calculate bounding box & offset:**
+   ```java
+   // Find min/max coordinates from commit blocks
+   int minX = blocks.stream().mapToInt(b -> b.x).min();
+   int minZ = blocks.stream().mapToInt(b -> b.z).min();
+   
+   // Calculate offset to center on player
+   int offsetX = playerX - minX - (width / 2);
+   int offsetY = playerY; // Keep Y at player level
+   int offsetZ = playerZ - minZ - (depth / 2);
+   ```
+
+3. **Create ghost blocks for preview:**
+   - Use existing `GhostBlockManager.addGhostBlock()`
+   - Transform all block positions by offset
+   - Store original positions in session for later apply
+   - Send `ClientboundBlockUpdatePacket` to player only
+
+4. **Player confirmation system:**
+   - Show message: "§eGhost preview active. Type /git confirm to apply or /git cancel to abort"
+   - Store pending clone in `PlayerSession.pendingClone`
+   - Include: source username, source repo, new repo name, block offsets
+
+5. **New commands:**
+   - `/git confirm` - Apply the ghost preview to world
+     - Clone repo to backend
+     - Set blocks in world using stored offsets
+     - Clear ghost blocks
+   - `/git cancel` - Cancel ghost preview
+     - Clear ghost blocks from `GhostBlockManager`
+     - Clear pending clone from session
+
+6. **Backend API changes:**
+   - Add `GET /repos/{username}/{repo_name}/head-blocks` - Get latest commit blocks without cloning
+   - Returns same format as `/commits/{hash}/blocks`
+
+**Files to modify:**
+- `GitCommand.java` - Add `executeClone()` ghost logic, new `/git confirm` and `/git cancel` commands
+- `PlayerSession.java` - Add `pendingClone` field with offset data
+- `BackendApiClient.java` - Add `getHeadBlocks()` method
+- `main.py` - Add `GET /repos/{username}/{repo_name}/head-blocks` endpoint
+
 ## Data Models
 
 ### Client-Side (Minecraft)
@@ -119,12 +171,13 @@ Implement a Git-like version control system for Minecraft builds, modeled after 
 - Click commit to view 3D block preview
 - Download/clone button
 
+<!--not needed for now 
 ### Commit 3D Viewer
 - `/commit/{username}/{repo_name}/{commit_hash}`
 - Render blocks in 3D (three.js or similar)
 - Rotate, zoom, pan controls
 - Block count, dimensions info
-- Export to schematic/Litematica
+- Export to schematic/Litematica -->
 
 ### Public Repository Search
 - `/explore` - Browse public repositories
