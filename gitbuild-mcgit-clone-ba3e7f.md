@@ -99,6 +99,9 @@ Implement a Git-like version control system for Minecraft builds, modeled after 
 
 3. **Create ghost blocks for preview:**
    - Use existing `GhostBlockManager.addGhostBlock()`
+   - make the blocks semi-transparent (0.5 alpha)
+   - orange if block is in wrong place (overlapping existing blocks)
+   - none if block is in correct place
    - Transform all block positions by offset
    - Store original positions in session for later apply
    - Send `ClientboundBlockUpdatePacket` to player only
