@@ -206,27 +206,27 @@ body {
 }
 
 /* Block 1: Grass */
-.block-1 { width: 6.25rem; height: 6.25rem; top: 10%; left: 10%; }
+.block-1 { width: 6.25rem; height: 6.25rem; top: 10%; left: 12%; }
 .block-1::before { background-image: url('./images/grassBlock.png'); }
 
 /* Block 2: Cobblestone */
-.block-2 { width: 5.625rem; height: 5.625rem; top: 20%; right: 15%; animation-delay: 1s; }
+.block-2 { width: 5.625rem; height: 5.625rem; top: 20%; right: 18%; animation-delay: 1s; }
 .block-2::before { background-image: url('./images/cobblestone.png'); }
 
 /* Block 3: Oak Wood */
-.block-3 { width: 5rem; height: 5rem; bottom: 20%; left: 5%; animation-delay: 2s; }
+.block-3 { width: 5rem; height: 5rem; bottom: 20%; left: 12%; animation-delay: 2s; }
 .block-3::before { background-image: url('./images/oakLog.png'); }
 
 /* Block 4: Furnace (Animated GIF) */
-.block-4 { width: 6.0625rem; height: 6.0625rem; bottom: 30%; right: 10%; animation-delay: 3s; }
+.block-4 { width: 6.0625rem; height: 6.0625rem; bottom: 30%; right: 15%; animation-delay: 3s; }
 .block-4::before { background-image: url('./images/furnace.gif'); }
 
 /* Block 5: Diamond Ore */
-.block-5 { width: 5.625rem; height: 5.625rem; top: 50%; left: 8%; animation-delay: 4s; }
+.block-5 { width: 5.625rem; height: 5.625rem; top: 50%; left: 15%; animation-delay: 4s; }
 .block-5::before { background-image: url('./images/diamondOre.png'); }
 
 /* Block 6: Enchanted Book (Animated GIF) */
-.block-6 { width: 6.375rem; height: 6.375rem; top: 40%; right: 8%; animation-delay: 5s; }
+.block-6 { width: 6.375rem; height: 6.375rem; top: 40%; right: 12%; animation-delay: 5s; }
 .block-6::before { background-image: url('./images/bookshelf.gif'); }
 
 /* --- ANIMATIONS --- */

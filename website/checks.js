@@ -393,5 +393,313 @@ export async function generateHash(username, password) {
 	return hashHex;
 }
 
+// Repository Management API Functions
+
+// Create a new repository
+export async function createRepository(username, repoName, uuid) {
+	const serverConnected = await canConnectToServer();
+	
+	if (!serverConnected) {
+		displayMessage("error", "Cannot connect to server. Please check your connection.");
+		return false;
+	}
+
+	try {
+		const response = await fetch(`${DATABASE_API_URL}/repos/${username}`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({
+				repo_name: repoName,
+				uuid: uuid
+			})
+		});
+
+		const result = await response.json();
+
+		if (response.ok) {
+			displayMessage("success", `Repository "${repoName}" created successfully!`);
+			return true;
+		} else {
+			displayMessage("error", result.detail || "Failed to create repository");
+			return false;
+		}
+	} catch (error) {
+		console.error('Create repository error:', error);
+		displayMessage("error", "Failed to create repository. Please try again.");
+		return false;
+	}
+}
+
+// List all repositories for a user
+export async function listRepositories(username, uuid) {
+	const serverConnected = await canConnectToServer();
+	
+	if (!serverConnected) {
+		console.error("Cannot connect to server");
+		return [];
+	}
+
+	try {
+		const response = await fetch(`${DATABASE_API_URL}/repos/${username}?uuid=${uuid}`, {
+			method: 'GET',
+			headers: {
+				'Content-Type': 'application/json',
+			}
+		});
+
+		const result = await response.json();
+
+		if (response.ok) {
+			return result.repos || [];
+		} else {
+			console.error('Failed to list repositories:', result.detail);
+			return [];
+		}
+	} catch (error) {
+		console.error('List repositories error:', error);
+		return [];
+	}
+}
+
+// Check if a repository exists
+export async function repositoryExists(username, repoName) {
+	const serverConnected = await canConnectToServer();
+	
+	if (!serverConnected) {
+		return false;
+	}
+
+	try {
+		const response = await fetch(`${DATABASE_API_URL}/repos/${username}/${repoName}/exists`, {
+			method: 'GET',
+			headers: {
+				'Content-Type': 'application/json',
+			}
+		});
+
+		const result = await response.json();
+
+		if (response.ok) {
+			return result.exists;
+		} else {
+			console.error('Failed to check repository existence:', result.detail);
+			return false;
+		}
+	} catch (error) {
+		console.error('Repository exists check error:', error);
+		return false;
+	}
+}
+
+// Clone a repository
+export async function cloneRepository(username, sourceUsername, sourceRepo, newRepoName, uuid) {
+	const serverConnected = await canConnectToServer();
+	
+	if (!serverConnected) {
+		displayMessage("error", "Cannot connect to server. Please check your connection.");
+		return false;
+	}
+
+	try {
+		const response = await fetch(`${DATABASE_API_URL}/repos/${username}/clone`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({
+				source_username: sourceUsername,
+				source_repo: sourceRepo,
+				new_repo_name: newRepoName,
+				uuid: uuid
+			})
+		});
+
+		const result = await response.json();
+
+		if (response.ok) {
+			displayMessage("success", `Repository cloned successfully as "${newRepoName}"!`);
+			return true;
+		} else {
+			displayMessage("error", result.detail || "Failed to clone repository");
+			return false;
+		}
+	} catch (error) {
+		console.error('Clone repository error:', error);
+		displayMessage("error", "Failed to clone repository. Please try again.");
+		return false;
+	}
+}
+
+// Get commit history for a repository
+export async function getCommitHistory(username, repoName) {
+	const serverConnected = await canConnectToServer();
+	
+	if (!serverConnected) {
+		console.error("Cannot connect to server");
+		return [];
+	}
+
+	try {
+		const response = await fetch(`${DATABASE_API_URL}/users/${username}/${repoName}/log`, {
+			method: 'GET',
+			headers: {
+				'Content-Type': 'application/json',
+			}
+		});
+
+		const result = await response.json();
+
+		if (response.ok) {
+			return result;
+		} else {
+			console.error('Failed to get commit history:', result.detail);
+			return [];
+		}
+	} catch (error) {
+		console.error('Get commit history error:', error);
+		return [];
+	}
+}
+
+// Get blocks from a specific commit
+export async function getCommitBlocks(username, repoName, commitHash) {
+	const serverConnected = await canConnectToServer();
+	
+	if (!serverConnected) {
+		console.error("Cannot connect to server");
+		return [];
+	}
+
+	try {
+		const response = await fetch(`${DATABASE_API_URL}/repos/${username}/${repoName}/commits/${commitHash}/blocks`, {
+			method: 'GET',
+			headers: {
+				'Content-Type': 'application/json',
+			}
+		});
+
+		const result = await response.json();
+
+		if (response.ok) {
+			return result;
+		} else {
+			console.error('Failed to get commit blocks:', result.detail);
+			return [];
+		}
+	} catch (error) {
+		console.error('Get commit blocks error:', error);
+		return [];
+	}
+}
+
+// Get head blocks (latest commit) for clone preview
+export async function getHeadBlocks(username, repoName) {
+	const serverConnected = await canConnectToServer();
+	
+	if (!serverConnected) {
+		console.error("Cannot connect to server");
+		return null;
+	}
+
+	try {
+		const response = await fetch(`${DATABASE_API_URL}/repos/${username}/${repoName}/head-blocks`, {
+			method: 'GET',
+			headers: {
+				'Content-Type': 'application/json',
+			}
+		});
+
+		const result = await response.json();
+
+		if (response.ok) {
+			return result;
+		} else {
+			console.error('Failed to get head blocks:', result.detail);
+			return null;
+		}
+	} catch (error) {
+		console.error('Get head blocks error:', error);
+		return null;
+	}
+}
+
+// Push commits to remote repository
+export async function pushRepository(username, repoName, remoteUsername, remoteRepo, uuid) {
+	const serverConnected = await canConnectToServer();
+	
+	if (!serverConnected) {
+		displayMessage("error", "Cannot connect to server. Please check your connection.");
+		return false;
+	}
+
+	try {
+		const response = await fetch(`${DATABASE_API_URL}/repos/${username}/${repoName}/push`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({
+				remote_username: remoteUsername,
+				remote_repo: remoteRepo,
+				uuid: uuid
+			})
+		});
+
+		const result = await response.json();
+
+		if (response.ok) {
+			displayMessage("success", `Repository pushed to "${remoteUsername}/${remoteRepo}"!`);
+			return true;
+		} else {
+			displayMessage("error", result.detail || "Failed to push repository");
+			return false;
+		}
+	} catch (error) {
+		console.error('Push repository error:', error);
+		displayMessage("error", "Failed to push repository. Please try again.");
+		return false;
+	}
+}
+
+// Pull commits from remote repository
+export async function pullRepository(username, repoName, remoteUsername, remoteRepo, uuid) {
+	const serverConnected = await canConnectToServer();
+	
+	if (!serverConnected) {
+		displayMessage("error", "Cannot connect to server. Please check your connection.");
+		return false;
+	}
+
+	try {
+		const response = await fetch(`${DATABASE_API_URL}/repos/${username}/${repoName}/pull`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({
+				remote_username: remoteUsername,
+				remote_repo: remoteRepo,
+				uuid: uuid
+			})
+		});
+
+		const result = await response.json();
+
+		if (response.ok) {
+			displayMessage("success", `Repository pulled from "${remoteUsername}/${remoteRepo}"!`);
+			return true;
+		} else {
+			displayMessage("error", result.detail || "Failed to pull repository");
+			return false;
+		}
+	} catch (error) {
+		console.error('Pull repository error:', error);
+		displayMessage("error", "Failed to pull repository. Please try again.");
+		return false;
+	}
+}
+
 // Export validation rules
 export { validationRules };

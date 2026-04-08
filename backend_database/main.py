@@ -186,6 +186,29 @@ def create_repo(username: str, repo_name: str, uuid: str, db: Session = Depends(
     if not user_check:
         raise HTTPException(status_code=404, detail="User doesn't exist")
     
+    # Get the user ID
+    user = db.query(models.User).filter(models.User.uuid == uuid).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Check if repository already exists in database
+    existing_repo = db.query(models.Repo).filter(
+        and_(models.Repo.name == repo_name, models.Repo.creator_id == user.id)
+    ).first()
+    
+    if existing_repo:
+        raise HTTPException(status_code=400, detail="Repository already exists")
+    
+    # Create repository record in database
+    new_repo = models.Repo(
+        name=repo_name,
+        creator_id=user.id
+    )
+    
+    db.add(new_repo)
+    db.commit()
+    db.refresh(new_repo)
+    
     # Create repo directory structure
     import os
     repo_path = os.path.join(database.DATA_ROOT, username, repo_name)
@@ -195,7 +218,7 @@ def create_repo(username: str, repo_name: str, uuid: str, db: Session = Depends(
     meta_db = database.get_repo_metadata_session(username, repo_name)
     meta_db.close()
     
-    return {"status": "success", "repo_name": repo_name, "message": "Repository initialized"}
+    return {"status": "success", "repo_name": repo_name, "message": "Repository initialized", "repo_id": new_repo.id}
 
 
 @app.get("/repos/{username}")
@@ -205,19 +228,15 @@ def list_repos(username: str, uuid: str, db: Session = Depends(get_database)):
     if not user_check:
         raise HTTPException(status_code=404, detail="User doesn't exist")
     
-    user_path = os.path.join(database.DATA_ROOT, username)
-    if not os.path.exists(user_path):
-        return {"repos": []}
+    # Get the user ID
+    user = db.query(models.User).filter(models.User.uuid == uuid).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
     
-    repos = []
-    for item in os.listdir(user_path):
-        item_path = os.path.join(user_path, item)
-        if os.path.isdir(item_path):
-            # Check if it has a metadata.db (is a valid repo)
-            if os.path.exists(os.path.join(item_path, "metadata.db")):
-                repos.append(item)
+    # Get repositories from database
+    repos = db.query(models.Repo).filter(models.Repo.creator_id == user.id).all()
     
-    return {"repos": repos}
+    return {"repos": [repo.name for repo in repos]}
 
 
 @app.get("/repos/{username}/{repo_name}/exists")
@@ -227,6 +246,48 @@ def repo_exists(username: str, repo_name: str):
     repo_path = os.path.join(database.DATA_ROOT, username, repo_name)
     exists_flag = os.path.exists(repo_path) and os.path.exists(os.path.join(repo_path, "metadata.db"))
     return {"exists": exists_flag}
+
+
+@app.delete("/repos/{username}/{repo_name}")
+def delete_repo(username: str, repo_name: str, uuid: str, db: Session = Depends(get_database)):
+    """Delete a repository and all its data"""
+    # Verify user exists and owns the repository
+    user_check = db.query(exists().where(and_(models.User.uuid == uuid, models.User.username == username))).scalar()
+    if not user_check:
+        raise HTTPException(status_code=404, detail="User doesn't exist")
+    
+    # Get the user ID
+    user = db.query(models.User).filter(models.User.uuid == uuid).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Find the repository
+    repo = db.query(models.Repo).filter(
+        and_(models.Repo.name == repo_name, models.Repo.creator_id == user.id)
+    ).first()
+    
+    if not repo:
+        raise HTTPException(status_code=404, detail="Repository not found")
+    
+    import os
+    import shutil
+    
+    repo_path = os.path.join(database.DATA_ROOT, username, repo_name)
+    
+    try:
+        # Delete all files and directories
+        if os.path.exists(repo_path):
+            shutil.rmtree(repo_path)
+        
+        # Delete from database
+        db.delete(repo)
+        db.commit()
+        
+        return {"status": "deleted", "repo_name": repo_name, "message": "Repository deleted successfully"}
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete repository: {str(e)}")
 
 
 @app.get("/repos/{username}/{repo_name}/commits/{commit_hash}/blocks")
@@ -242,6 +303,35 @@ def get_commit_blocks(username: str, repo_name: str, commit_hash: str):
     commit_db.close()
     
     return [{"x": b.x, "y": b.y, "z": b.z, "block_name": b.block_name, "block_state": b.block_state} for b in blocks]
+
+
+@app.get("/repos/{username}/{repo_name}/head-blocks")
+def get_head_blocks(username: str, repo_name: str):
+    """Get blocks from the latest commit (HEAD) without cloning"""
+    import os
+    repo_path = os.path.join(database.DATA_ROOT, username, repo_name)
+    if not os.path.exists(repo_path) or not os.path.exists(os.path.join(repo_path, "metadata.db")):
+        raise HTTPException(status_code=404, detail="Repository not found")
+    
+    # Get the active commit (HEAD)
+    meta_db = database.get_repo_metadata_session(username, repo_name)
+    head_commit = meta_db.query(models.RepoMetadata).filter(models.RepoMetadata.is_active == True).first()
+    meta_db.close()
+    
+    if not head_commit:
+        raise HTTPException(status_code=404, detail="No commits found in repository")
+    
+    # Get blocks from the HEAD commit
+    commit_db = database.get_commit_database_session(username, repo_name, head_commit.commit_name)
+    blocks = commit_db.query(models.Commit).all()
+    commit_db.close()
+    
+    return {
+        "commit_hash": head_commit.commit_hash,
+        "commit_name": head_commit.commit_name,
+        "message": head_commit.message,
+        "blocks": [{"x": b.x, "y": b.y, "z": b.z, "block_name": b.block_name, "block_state": b.block_state} for b in blocks]
+    }
 
 
 # Remote Operations Endpoints
