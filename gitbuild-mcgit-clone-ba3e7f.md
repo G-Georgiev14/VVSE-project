@@ -164,6 +164,7 @@ Implement a Git-like version control system for Minecraft builds, modeled after 
 - Show repository stats (commits, last modified)
 - Create new repository button
 - Delete repository option
+- Clone repository button (url to copy into minecraft client)
 
 ### Commit History Viewer
 - `/repo/{username}/{repo_name}` - Repository detail page
