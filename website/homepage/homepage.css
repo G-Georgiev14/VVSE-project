@@ -1448,8 +1448,8 @@ body::before {
     .main-nav {
         flex-wrap: wrap;
         justify-content: center;
-
         justify-self: center;
+        
     }
 
     .section-header {

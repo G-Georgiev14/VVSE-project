@@ -684,7 +684,7 @@ async function createRepository(modal) {
     }
 
     if (!currentUser) {
-        alert('You must be logged in to create repositories');
+        alert('You must be logged in to create repositories or/and start the server');
         return;
     }
 
