@@ -17,28 +17,24 @@
                     <img src="../images/GITBUILD.png" alt="GITBUILD" class="logo-image">
                 </div>
                 <nav class="main-nav">
-                    <a href="#" class="nav-item active" data-section="overview">
+                    <a href="homepage.html" class="nav-item active" data-section="overview">
                         <i class="fas fa-home"></i>
                         <span>Overview</span>
                     </a>
-                    <a href="#" class="nav-item" data-section="repositories">
+                    <a href="userpage.html" class="nav-item" data-section="repositories">
                         <i class="fas fa-code-branch"></i>
-                        <span>Repositories</span>
-                    </a>
-                    <a href="#" class="nav-item" data-section="projects">
-                        <i class="fas fa-cube"></i>
-                        <span>Projects</span>
-                    </a>
-                    <a href="#" class="nav-item" data-section="packages">
-                        <i class="fas fa-box"></i>
-                        <span>Packages</span>
-                    </a>
-                    <a href="#" class="nav-item" data-section="stars">
-                        <i class="fas fa-star"></i>
-                        <span>Stars</span>
+                        <span>My Repositories</span>
                     </a>
                 </nav>
                 <div class="header-actions">
+                    <button class="auth-btn signup-btn" id="signupBtn">
+                        <i class="fas fa-user-plus"></i>
+                        <span>Sign up</span>
+                    </button>
+                    <button class="auth-btn login-btn" id="loginBtn">
+                        <i class="fas fa-sign-in-alt"></i>
+                        <span>Log in</span>
+                    </button>
                     <button class="search-btn">
                         <i class="fas fa-search"></i>
                     </button>
@@ -46,7 +42,7 @@
                         <i class="fas fa-plus"></i>
                         <span>New repository</span>
                     </button>
-                    <div class="profile-menu">
+                    <div class="profile-menu" id="profileMenu" style="display: none;">
                         <img src="https://minotar.net/helm/random/32" alt="Profile" class="profile-avatar">
                         <span class="dropdown-arrow">▼</span>
                     </div>
@@ -57,12 +53,45 @@
         <div class="main-content">
             <!-- Main Content Area -->
             <main class="content-area">
-                <!-- Popular Repositories -->
+                <!-- GitBuild Information -->
+                <section class="gitbuild-info">
+                    <div class="info-header">
+                        <h2><i class="fas fa-cube"></i> What is GitBuild?</h2>
+                    </div>
+                    <div class="info-content">
+                        <p>GitBuild is a Git-like version control system for Minecraft builds, modeled after MCGit. It allows you to track changes to your builds, manage commits, and collaborate with other players.</p>
+                        
+                        <div class="features-grid">
+                            <div class="feature-item">
+                                <i class="fas fa-code-branch"></i>
+                                <h3>Version Control</h3>
+                                <p>Track all changes to your builds with commit history</p>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                                <h3>Remote Operations</h3>
+                                <p>Push, pull, and clone repositories with ease</p>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-cubes"></i>
+                                <h3>Block Tracking</h3>
+                                <p>Automatic block change tracking and staging</p>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-undo"></i>
+                                <h3>Revert Capability</h3>
+                                <p>Revert your world to any previous commit</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Public Repositories -->
                 <section class="repositories-section">
                     <div class="section-header">
                         <div class="section-title">
                             <h2>
-                            
+                            Public Repositories
                             </h2>
                             <span class="repo-count"></span>
                         </div>
@@ -82,12 +111,8 @@
                     <div class="empty-icon">
                         <i class="fas fa-cube"></i>
                     </div>
-                    <h3>No repositories yet</h3>
-                    <p>Create your first repository to start sharing your Minecraft builds!</p>
-                    <button class="create-repo-btn">
-                        <i class="fas fa-plus"></i>
-                        <span>Create repository</span>
-                    </button>
+                    <h3>No public repositories yet</h3>
+                    <p>Browse and explore public Minecraft builds from the community!</p>
                 </div>
             </main>
         </div>

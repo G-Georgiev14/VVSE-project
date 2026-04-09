@@ -33,7 +33,7 @@ async function checkAuthStatus() {
     
     if (!token || !username) {
         console.log('No token or username found in localStorage. Redirecting to login.');
-        // window.location.href = '../signup/login.html';
+         window.location.href = '../login/login.html';
         return;
     }
 
@@ -64,32 +64,41 @@ async function checkAuthStatus() {
 }
 
 async function loadRepositories() {
-    if (!currentUser) {
-        // Use mock repositories for testing when no user is logged in
-        repositories = getMockRepositories();
-        return;
-    }
-
     try {
-        // Call backend API to list repositories
-        const response = await fetch(`${API_BASE_URL}/repos/${currentUser.username}?uuid=${currentUser.uuid}`);
+        console.log('Fetching all public repositories from:', `${API_BASE_URL}/public-repos`);
+        // Call backend API to list all public repositories
+        const response = await fetch(`${API_BASE_URL}/public-repos`);
+        
+        console.log('Response status:', response.status);
         
         if (response.ok) {
             const result = await response.json();
+            console.log('API response:', result);
             const repoNames = result.repos || [];
+            console.log('Number of public repos found:', repoNames.length);
             
             // Transform repo names into repository objects with additional metadata
             repositories = repoNames.map(repo => ({
                 name: repo.name,
+                username: repo.username,
                 description: `Minecraft build repository`,
                 visibility: repo.visibility || 'public',
                 language: 'Minecraft',
                 updated: 'Recently',
                 commits: 0
             }));
+            
+            console.log('Transformed repositories:', repositories);
         } else {
-            const error = await response.json();
-            console.error('Failed to load repositories:', error);
+            const errorText = await response.text();
+            console.error('Failed to load repositories - Status:', response.status);
+            console.error('Error response text:', errorText);
+            try {
+                const error = JSON.parse(errorText);
+                console.error('Parsed error:', error);
+            } catch {
+                console.error('Could not parse error as JSON');
+            }
             // Don't fall back to mock data - keep empty to show backend is unavailable
             repositories = [];
         }
@@ -105,10 +114,24 @@ function getMockRepositories() {
 }
 
 function setupEventListeners() {
+    // Sign up button
+    const signupBtn = document.querySelector('#signupBtn');
+    if (signupBtn) {
+        signupBtn.addEventListener('click', handleSignup);
+    }
+
+    // Login button
+    const loginBtn = document.querySelector('#loginBtn');
+    if (loginBtn) {
+        loginBtn.addEventListener('click', handleLogin);
+    }
+
     // New repository button
     const newRepoBtn = document.querySelector('.new-repo-btn');
     if (newRepoBtn) {
-        newRepoBtn.addEventListener('click', showCreateRepositoryModal);
+        newRepoBtn.addEventListener('click', () => {
+            window.location.href = 'userpage.html';
+        });
     }
 
     // Search button
@@ -117,21 +140,23 @@ function setupEventListeners() {
         searchBtn.addEventListener('click', showSearchModal);
     }
 
-    // Create repository button in empty state
+    // Create repository button in empty state - redirect to userpage
     const createRepoBtn = document.querySelector('.create-repo-btn');
     if (createRepoBtn) {
-        createRepoBtn.addEventListener('click', showCreateRepositoryModal);
+        createRepoBtn.addEventListener('click', () => {
+            window.location.href = 'userpage.html';
+        });
     }
 
-    // Navigation items
-    const navItems = document.querySelectorAll('.nav-item');
-    navItems.forEach(item => {
-        item.addEventListener('click', (e) => {
-            e.preventDefault();
-            const section = item.dataset.section || item.textContent.trim();
-            handleNavigation(section);
-        });
-    });
+    // Navigation items - allow default link behavior, no custom handling needed
+    // const navItems = document.querySelectorAll('.nav-item');
+    // navItems.forEach(item => {
+    //     item.addEventListener('click', (e) => {
+    //         e.preventDefault();
+    //         const section = item.dataset.section || item.textContent.trim();
+    //         handleNavigation(section);
+    //     });
+    // });
 
     // Repository cards
     document.addEventListener('click', (e) => {
@@ -224,11 +249,64 @@ function setupEventListeners() {
     });
 }
 
+function handleSignup() {
+    // Redirect to signup page
+    window.location.href = '../signup/signup.html';
+}
+
+function handleLogin() {
+    // Redirect to login page
+    window.location.href = '../login/login.html';
+}
+
 function updateUI() {
     // Update username in profile
     const usernameElement = document.querySelector('.username');
     if (usernameElement && currentUser) {
         usernameElement.textContent = currentUser.username;
+    }
+
+    // Show/hide profile menu and auth buttons based on login status
+    const profileMenu = document.querySelector('#profileMenu');
+    const signupBtn = document.querySelector('#signupBtn');
+    const loginBtn = document.querySelector('#loginBtn');
+    const searchBtn = document.querySelector('.search-btn');
+    const newRepoBtn = document.querySelector('.new-repo-btn');
+    
+    if (currentUser) {
+        // User is logged in - show profile menu and all buttons, hide auth buttons
+        if (profileMenu) {
+            profileMenu.style.display = 'flex';
+        }
+        if (signupBtn) {
+            signupBtn.style.display = 'none';
+        }
+        if (loginBtn) {
+            loginBtn.style.display = 'none';
+        }
+        if (searchBtn) {
+            searchBtn.style.display = 'flex';
+        }
+        if (newRepoBtn) {
+            newRepoBtn.style.display = 'flex';
+        }
+    } else {
+        // User is not logged in - hide profile menu, search, and new repo buttons, show auth buttons
+        if (profileMenu) {
+            profileMenu.style.display = 'none';
+        }
+        if (signupBtn) {
+            signupBtn.style.display = 'flex';
+        }
+        if (loginBtn) {
+            loginBtn.style.display = 'flex';
+        }
+        if (searchBtn) {
+            searchBtn.style.display = 'none';
+        }
+        if (newRepoBtn) {
+            newRepoBtn.style.display = 'none';
+        }
     }
 
     // Update repositories display
@@ -258,7 +336,7 @@ function renderRepositories() {
             <div class="repository-card ${isFeatured ? 'featured' : ''}" data-language="${repo.language.toLowerCase()}" style="animation-delay: ${index * 0.1 + 0.1}s">
                 <div class="repo-header">
                     <h3 class="repo-name">
-                        <a href="#" data-repo="${repo.name}">
+                        <a href="#" data-repo="${repo.name}" data-username="${repo.username}">
                             <i class="fas fa-${icon}"></i>
                             ${repo.name}
                         </a>
@@ -270,6 +348,10 @@ function renderRepositories() {
                         </span>
                         ${isFeatured ? '<span class="repo-badge featured-badge"><i class="fas fa-star"></i>Featured</span>' : ''}
                     </div>
+                </div>
+                <div class="repo-author">
+                    <i class="fas fa-user"></i>
+                    <span class="author-name">${repo.username}</span>
                 </div>
                 <div class="repo-description">
                     ${repo.description}
@@ -296,21 +378,17 @@ function renderRepositories() {
                 </div>
                 <div class="repo-actions">
                     ${!currentUser ? 
-                    `<button class="view-btn" disabled title="Please log in to view repositories">
+                    `<button class="view-btn login-redirect-btn">
                         <i class="fas fa-lock btn-icon"></i>
-                        <span>Login</span>
+                        <span>Login to view</span>
                     </button>` :
-                    `<button class="view-btn" data-repo="${repo.name}">
+                    `<button class="view-btn" data-repo="${repo.name}" data-username="${repo.username}">
                         <i class="fas fa-${repo.visibility === 'private' ? 'lock' : 'eye'} btn-icon"></i>
                         <span>View</span>
                     </button>`}
                     <button class="star-btn" data-repo="${repo.name}">
                         <i class="fas fa-star btn-icon"></i>
                         <span>Star</span>
-                    </button>
-                    <button class="delete-btn" data-repo="${repo.name}">
-                        <i class="fas fa-trash btn-icon"></i>
-                        <span>Delete</span>
                     </button>
                 </div>
                 <div class="repo-meta">
@@ -375,10 +453,31 @@ function attachRepositoryListeners() {
         });
     });
 
-    // Add delete button listeners
-    const deleteButtons = document.querySelectorAll('.delete-btn');
-    deleteButtons.forEach(button => {
-        button.addEventListener('click', handleDeleteRepository);
+    // Add login redirect button listeners
+    const loginRedirectBtns = document.querySelectorAll('.login-redirect-btn');
+    loginRedirectBtns.forEach(button => {
+        button.addEventListener('click', () => {
+            window.location.href = '../login/login.html';
+        });
+    });
+
+    // Add view button listeners for logged-in users
+    const viewButtons = document.querySelectorAll('.view-btn:not(.login-redirect-btn)');
+    viewButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const repoName = button.dataset.repo;
+            const username = button.dataset.username;
+            openRepository(repoName, username);
+        });
+    });
+
+    // Add star button listeners
+    const starButtons = document.querySelectorAll('.star-btn');
+    starButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const repoName = button.dataset.repo;
+            toggleStar(button, repoName);
+        });
     });
 }
 
@@ -484,36 +583,36 @@ function showStars() {
     console.log('Showing starred repositories');
 }
 
-async function openRepository(repoName) {
-    console.log('openRepository called with:', repoName);
+async function openRepository(repoName, username) {
+    console.log('openRepository called with:', repoName, 'username:', username);
     console.log('Available repositories:', repositories);
     
     // Find the repository data
-    const repo = repositories.find(r => r.name === repoName);
+    const repo = repositories.find(r => r.name === repoName && r.username === username);
     console.log('Found repository:', repo);
     
     if (repo) {
         // Show repository content with actual data
         console.log('Showing repository content modal');
-        await showRepositoryContentModal(repo);
+        await showRepositoryContentModal(repo, username);
     } else {
         console.log('Repository not found');
         showNotification('Repository not found', 'info');
     }
 }
 
-async function showRepositoryContentModal(repo) {
-    const modal = createRepositoryContentModal(repo);
+async function showRepositoryContentModal(repo, username) {
+    const modal = createRepositoryContentModal(repo, username);
     document.body.appendChild(modal);
     
     // Setup modal event listeners
     setupRepositoryContentModal(modal);
     
     // Load repository content
-    await loadRepositoryContent(repo.name, modal);
+    await loadRepositoryContent(repo.name, username, modal);
 }
 
-function createRepositoryContentModal(repo) {
+function createRepositoryContentModal(repo, username) {
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.innerHTML = `
@@ -550,6 +649,9 @@ function createRepositoryContentModal(repo) {
                                 <h3>Repository Information</h3>
                                 <div class="info-grid">
                                     <div class="info-item">
+                                        <strong>Owner:</strong> ${username || 'Unknown'}
+                                    </div>
+                                    <div class="info-item">
                                         <strong>Created:</strong> ${repo.created || 'Unknown'}
                                     </div>
                                     <div class="info-item">
@@ -567,7 +669,7 @@ function createRepositoryContentModal(repo) {
                             <div class="overview-section">
                                 <h3>Actions</h3>
                                 <div class="action-buttons">
-                                    <button class="btn btn-primary" onclick="cloneRepository('${repo.name}')">
+                                    <button class="btn btn-primary" onclick="cloneRepository('${repo.name}', '${username}')">
                                         <i class="fas fa-code-branch"></i> Clone
                                     </button>
                                     <button class="btn btn-secondary" onclick="downloadRepository('${repo.name}')">
@@ -637,13 +739,13 @@ function setupRepositoryContentModal(modal) {
     });
 }
 
-async function loadRepositoryContent(repoName, modal) {
+async function loadRepositoryContent(repoName, username, modal) {
     // Find the repository data to check visibility
-    const repo = repositories.find(r => r.name === repoName);
+    const repo = repositories.find(r => r.name === repoName && r.username === username);
     
     // Check if repository is private and user doesn't have access
     // For private repos, only the owner can view the content
-    if (repo && repo.visibility === 'private' && !currentUser) {
+    if (repo && repo.visibility === 'private' && (!currentUser || currentUser.username !== username)) {
         showRestrictedAccessMessage(modal, repo);
         return;
     }
@@ -654,8 +756,8 @@ async function loadRepositoryContent(repoName, modal) {
     }
     
     try {
-        // Load commit history
-        const commitsResponse = await fetch(`${API_BASE_URL}/users/${currentUser.username}/${repoName}/log`);
+        // Load commit history using the repository owner's username
+        const commitsResponse = await fetch(`${API_BASE_URL}/users/${username}/${repoName}/log`);
         if (commitsResponse.ok) {
             const commits = await commitsResponse.json();
             displayCommits(commits, modal);
@@ -666,8 +768,8 @@ async function loadRepositoryContent(repoName, modal) {
             modal.querySelector('#commitsList').innerHTML = '<p class="error-message">Failed to load commit history</p>';
         }
         
-        // Load current blocks
-        const blocksResponse = await fetch(`${API_BASE_URL}/repos/${currentUser.username}/${repoName}/head-blocks`);
+        // Load current blocks using the repository owner's username
+        const blocksResponse = await fetch(`${API_BASE_URL}/repos/${username}/${repoName}/head-blocks`);
         if (blocksResponse.ok) {
             const headData = await blocksResponse.json();
             displayBlocks(headData.blocks, modal, headData);
@@ -843,9 +945,9 @@ function displayBlocks(blocks, modal, headData) {
     blocksViewer.innerHTML = blocksHTML;
 }
 
-function cloneRepository(repoName) {
+function cloneRepository(repoName, username) {
     if (currentUser) {
-        showCloneModal(repoName, currentUser.username);
+        showCloneModal(repoName, username);
     } else {
         showNotification('Please log in to clone repositories', 'error');
     }
@@ -863,177 +965,8 @@ function downloadRepository(repoName) {
     }
 }
 
-function showCreateRepositoryModal() {
-    // Show modal for creating new repository
-    const modal = createRepositoryModal();
-    document.body.appendChild(modal);
-    
-    // Setup modal event listeners
-    setupRepositoryModal(modal);
-}
 
-function createRepositoryModal() {
-    const modal = document.createElement('div');
-    modal.className = 'modal-overlay';
-    modal.innerHTML = `
-        <div class="modal">
-            <div class="modal-header">
-                <h2>Create new repository</h2>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label for="repoName">Repository name</label>
-                    <input type="text" id="repoName" placeholder="my-awesome-build" required>
-                </div>
-                <div class="form-group">
-                    <label for="repoDescription">Description (optional)</label>
-                    <textarea id="repoDescription" placeholder="Describe your Minecraft build..."></textarea>
-                </div>
-                <div class="form-group">
-                    <label>Repository Visibility</label>
-                    <div class="radio-group">
-                        <div class="radio-option selected" data-value="public">
-                            <div class="radio-custom"></div>
-                            <div class="radio-label">
-                                <i class="fas fa-globe radio-icon"></i>
-                                Public
-                                <div class="radio-description">Anyone can see this repository</div>
-                            </div>
-                        </div>
-                        <div class="radio-option" data-value="private">
-                            <div class="radio-custom"></div>
-                            <div class="radio-label">
-                                <i class="fas fa-lock radio-icon"></i>
-                                Private
-                                <div class="radio-description">You choose who can see and commit</div>
-                            </div>
-                        </div>
-                    </div>
-                    <input type="hidden" name="visibility" id="visibilityInput" value="public">
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" id="cancelRepo">Cancel</button>
-                <button class="btn btn-primary" id="createRepoBtn">Create repository</button>
-            </div>
-        </div>
-    `;
-    return modal;
-}
 
-function setupRepositoryModal(modal) {
-    const cancelBtn = modal.querySelector('#cancelRepo');
-    const createBtn = modal.querySelector('#createRepoBtn');
-    const radioOptions = modal.querySelectorAll('.radio-option');
-    const visibilityInput = modal.querySelector('#visibilityInput');
-
-    const closeModal = () => {
-        document.body.removeChild(modal);
-    };
-
-    // Radio button functionality
-    radioOptions.forEach(option => {
-        option.addEventListener('click', () => {
-            // Remove selected class from all options
-            radioOptions.forEach(opt => opt.classList.remove('selected'));
-            // Add selected class to clicked option
-            option.classList.add('selected');
-            // Update hidden input value
-            visibilityInput.value = option.dataset.value;
-        });
-    });
-
-    cancelBtn.addEventListener('click', closeModal);
-
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-            closeModal();
-        }
-    });
-
-    createBtn.addEventListener('click', () => {
-        createRepository(modal);
-    });
-}
-
-async function createRepository(modal) {
-    const nameInput = modal.querySelector('#repoName');
-    const descriptionInput = modal.querySelector('#repoDescription');
-    const visibilityInput = modal.querySelector('#visibilityInput');
-
-    const repoData = {
-        name: nameInput.value.trim(),
-        description: descriptionInput.value.trim(),
-        visibility: visibilityInput.value
-    };
-
-    if (!repoData.name) {
-        alert('Repository name is required');
-        return;
-    }
-
-    if (!currentUser) {
-        alert('You must be logged in to create repositories or/and start the server');
-        return;
-    }
-
-    try {
-        console.log('Creating repository with data:', repoData);
-        console.log('Current user:', currentUser);
-        console.log('API URL:', `${API_BASE_URL}/repos/${currentUser.username}`);
-        
-        // Call backend API to create repository
-        const response = await fetch(`${API_BASE_URL}/repos/${currentUser.username}?repo_name=${encodeURIComponent(repoData.name)}&uuid=${currentUser.uuid}&visibility=${encodeURIComponent(repoData.visibility)}`, {
-            method: 'POST'
-        });
-
-        console.log('Response status:', response.status);
-        console.log('Response ok:', response.ok);
-
-        if (response.ok) {
-            const result = await response.json();
-            console.log('Repository created:', result);
-            
-            // Add to local repositories for display
-            const now = new Date();
-            repositories.unshift({
-                name: repoData.name,
-                description: repoData.description,
-                visibility: repoData.visibility,
-                language: 'Minecraft',
-                updated: formatDateTime(now),
-                created: formatDateTime(now),
-                commits: 0
-            });
-
-            renderRepositories();
-            document.body.removeChild(modal);
-            showNotification('Repository created successfully!', 'success');
-        } else {
-            const errorText = await response.text();
-            console.error('Error response:', errorText);
-            let errorMessage = 'Failed to create repository';
-            
-            try {
-                const error = JSON.parse(errorText);
-                errorMessage = error.detail || error.message || errorMessage;
-            } catch {
-                errorMessage = errorText || errorMessage;
-            }
-            
-            throw new Error(errorMessage);
-        }
-    } catch (error) {
-        console.error('Failed to create repository:', error);
-        
-        // Check if it's a network error (backend not running)
-        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.name === 'TypeError') {
-            alert('Backend server is not running. Please start the backend server on http://127.0.0.1:8000');
-        } else {
-            alert(`Failed to create repository: ${error.message || error.toString()}`);
-        }
-    }
-}
 
 function formatDateTime(date) {
     const options = {
@@ -1577,13 +1510,14 @@ function signOut() {
     // Clear current user state
     currentUser = null;
     
+    // Update UI to show auth buttons and hide profile menu
+    updateUI();
+    
     // Show notification
     showNotification('You have been signed out successfully', 'success');
     
-    // Redirect to login page after a short delay
-    setTimeout(() => {
-        window.location.href = '../login/login.html';
-    }, 1500);
+    // Close the profile dropdown
+    closeProfileMenu();
 }
 
 function showNotification(message, type = 'info') {

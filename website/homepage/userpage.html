@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MinecraftHub - My Repositories</title>
+    <link rel="stylesheet" href="homepage.css">
+    <link href="https://fonts.cdnfonts.com/css/minecraft-4" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="minecraft-container">
+        <!-- Header Navigation -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <img src="../images/GITBUILD.png" alt="GITBUILD" class="logo-image">
+                </div>
+                <nav class="main-nav">
+                    <a href="homepage.html" class="nav-item" data-section="overview">
+                        <i class="fas fa-home"></i>
+                        <span>Overview</span>
+                    </a>
+                    <a href="userpage.html" class="nav-item active" data-section="my-repos">
+                        <i class="fas fa-folder"></i>
+                        <span>My Repositories</span>
+                    </a>
+                </nav>
+                <div class="header-actions">
+                    <button class="search-btn" id="searchBtn">
+                        <i class="fas fa-search"></i>
+                    </button>
+                    <div class="profile-menu" id="profileMenu">
+                        <img src="https://minotar.net/helm/random/32" alt="Profile" class="profile-avatar">
+                        <span class="dropdown-arrow">▼</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <!-- Main Content Area -->
+            <main class="content-area">
+                <!-- User Repositories Section -->
+                <section class="repositories-section">
+                    <div class="section-header">
+                        <div class="section-title">
+                            <h2>My Repositories</h2>
+                            <span class="repo-count" id="repoCount">0</span>
+                        </div>
+                        <div class="section-actions">
+                            <button class="new-repo-btn" id="createRepoBtn2">
+                                <i class="fas fa-plus"></i>
+                                <span>New repository</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="repositories-grid" id="userRepositoriesGrid">
+                        <!-- User repositories will be loaded here -->
+                    </div>
+                </section>
+
+                <!-- Empty State -->
+                <div class="empty-state" id="emptyState" style="display: none;">
+                    <div class="empty-icon">
+                        <i class="fas fa-folder"></i>
+                    </div>
+                    <h3>No repositories yet</h3>
+                    <p>Create your first repository to start sharing your Minecraft builds!</p>
+                    <button class="create-repo-btn" id="createRepoBtn3">
+                        <i class="fas fa-plus"></i>
+                        <span>Create repository</span>
+                    </button>
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <!-- Create Repository Modal -->
+    <div class="modal-overlay" id="createRepoModal" style="display: none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h2><i class="fas fa-plus"></i> Create a new repository</h2>
+                <button class="close-btn" id="closeCreateModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form class="minecraft-form" id="createRepoForm">
+                    <div class="form-group">
+                        <label for="repoName">Repository name</label>
+                        <input type="text" id="repoName" class="minecraft-input" placeholder="awesome-repo" required>
+                        <span id="repoNameError" class="error"></span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="repoDescription">Description (optional)</label>
+                        <textarea id="repoDescription" class="minecraft-input" placeholder="Describe your repository"></textarea>
+                        <span id="repoDescriptionError" class="error"></span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Visibility</label>
+                        <div class="radio-group">
+                            <label class="radio-option selected">
+                                <input type="radio" name="visibility" value="public" checked>
+                                <span class="radio-custom"></span>
+                                <div class="radio-label">
+                                    <i class="fas fa-globe radio-icon"></i>
+                                    <span>Public</span>
+                                    <div class="radio-description">Anyone can see this repository</div>
+                                </div>
+                            </label>
+                            <label class="radio-option">
+                                <input type="radio" name="visibility" value="private">
+                                <span class="radio-custom"></span>
+                                <div class="radio-label">
+                                    <i class="fas fa-lock radio-icon"></i>
+                                    <span>Private</span>
+                                    <div class="radio-description">Only you can see this repository</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelCreateRepo">Cancel</button>
+                <button class="btn btn-primary" id="submitCreateRepo">
+                    <i class="fas fa-plus"></i> Create repository
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Minecraft Sun -->
+    <div class="sun">
+        <div class="sun-rays"></div>
+        <div class="sun-rays2"></div>
+    </div>
+    
+    <script src="userpage.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+</body>
+</html>
