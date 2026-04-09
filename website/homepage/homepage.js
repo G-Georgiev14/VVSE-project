@@ -30,10 +30,11 @@ async function init() {
 async function checkAuthStatus() {
     const token = localStorage.getItem('authToken');
     const username = localStorage.getItem('username');
-    
+
     if (!token || !username) {
-        console.log('No token or username found in localStorage. Redirecting to login.');
-         window.location.href = '../login/login.html';
+        console.log('No token or username found in localStorage. User not logged in.');
+        currentUser = null;
+        console.log('currentUser set to null');
         return;
     }
 
@@ -42,13 +43,14 @@ async function checkAuthStatus() {
         const response = await fetch(`${API_BASE_URL}/users/uuid?uuid=${token}`);
         const data = await response.json();
         console.log('Backend response for token verification:', data);
-        
+
         if (!data) {
-            console.log('Token invalid according to backend. Redirecting to login.');
-            // Token invalid, redirect to login
+            console.log('Token invalid according to backend. User not logged in.');
+            // Token invalid, remove credentials
             localStorage.removeItem('authToken');
             localStorage.removeItem('username');
-            // window.location.href = '../signup/login.html';
+            currentUser = null;
+            console.log('currentUser set to null (invalid token)');
             return;
         }
 
@@ -57,6 +59,7 @@ async function checkAuthStatus() {
             username: username,
             uuid: token
         };
+        console.log('currentUser set:', currentUser);
     } catch (error) {
         console.error('Auth check failed:', error);
         // window.location.href = '../signup/login.html';
@@ -148,15 +151,18 @@ function setupEventListeners() {
         });
     }
 
-    // Navigation items - allow default link behavior, no custom handling needed
-    // const navItems = document.querySelectorAll('.nav-item');
-    // navItems.forEach(item => {
-    //     item.addEventListener('click', (e) => {
-    //         e.preventDefault();
-    //         const section = item.dataset.section || item.textContent.trim();
-    //         handleNavigation(section);
-    //     });
-    // });
+    // Navigation items - allow default link behavior, but check auth for My Repositories
+    const myReposLink = document.querySelector('.nav-item[data-section="repositories"]');
+    if (myReposLink) {
+        myReposLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (!currentUser) {
+                window.location.href = '../login/login.html';
+            } else {
+                window.location.href = 'userpage.html';
+            }
+        });
+    }
 
     // Repository cards
     document.addEventListener('click', (e) => {
