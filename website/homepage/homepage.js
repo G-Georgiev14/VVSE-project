@@ -79,10 +79,10 @@ async function loadRepositories() {
             const repoNames = result.repos || [];
             
             // Transform repo names into repository objects with additional metadata
-            repositories = repoNames.map(repoName => ({
-                name: repoName,
+            repositories = repoNames.map(repo => ({
+                name: repo.name,
                 description: `Minecraft build repository`,
-                visibility: 'public',
+                visibility: repo.visibility || 'public',
                 language: 'Minecraft',
                 updated: 'Recently',
                 commits: 0
@@ -141,19 +141,20 @@ function setupEventListeners() {
             openRepository(repoName);
         }
         
-        // Clone button clicks
-        if (e.target.closest('.clone-btn')) {
-            const btn = e.target.closest('.clone-btn');
-            const repoName = btn.dataset.repo;
-            const username = btn.dataset.user;
-            showCloneModal(repoName, username);
-        }
-        
+                
         // View button clicks
         if (e.target.closest('.view-btn')) {
             const btn = e.target.closest('.view-btn');
+            console.log('View button clicked:', btn);
+            console.log('Button disabled:', btn.disabled);
+            console.log('Button dataset:', btn.dataset);
             const repoName = btn.dataset.repo;
-            openRepository(repoName);
+            console.log('Repository name:', repoName);
+            if (!btn.disabled) {
+                openRepository(repoName);
+            } else {
+                console.log('View button is disabled, cannot open repository');
+            }
         }
         
         // Star button clicks
@@ -235,8 +236,9 @@ function updateUI() {
 }
 
 function renderRepositories() {
-    const repositoriesGrid = document.getElementById('repositoriesGrid');
-    const emptyState = document.getElementById('emptyState');
+    const repositoriesGrid = document.querySelector('.repositories-grid');
+    const emptyState = document.querySelector('.empty-state');
+    const username = currentUser ? currentUser.username : null;
 
     if (repositories.length === 0) {
         repositoriesGrid.style.display = 'none';
@@ -293,14 +295,15 @@ function renderRepositories() {
                     </div>
                 </div>
                 <div class="repo-actions">
-                    <button class="clone-btn" data-repo="${repo.name}" data-user="${currentUser ? currentUser.username : 'G-Georgiev14'}">
-                        <i class="fas fa-code-branch btn-icon"></i>
-                        <span>Clone</span>
-                    </button>
-                    <button class="view-btn" data-repo="${repo.name}">
-                        <i class="fas fa-eye btn-icon"></i>
+                    ${!currentUser ? 
+                    `<button class="view-btn" disabled title="Please log in to view repositories">
+                        <i class="fas fa-lock btn-icon"></i>
+                        <span>Login</span>
+                    </button>` :
+                    `<button class="view-btn" data-repo="${repo.name}">
+                        <i class="fas fa-${repo.visibility === 'private' ? 'lock' : 'eye'} btn-icon"></i>
                         <span>View</span>
-                    </button>
+                    </button>`}
                     <button class="star-btn" data-repo="${repo.name}">
                         <i class="fas fa-star btn-icon"></i>
                         <span>Star</span>
@@ -319,6 +322,11 @@ function renderRepositories() {
                         <i class="fas fa-clock"></i>
                         Updated ${repo.updated}
                     </span>
+                    ${repo.created ? `
+                    <span class="repo-created">
+                        <i class="fas fa-calendar-plus"></i>
+                        Created ${repo.created}
+                    </span>` : ''}
                 </div>
             </div>
         `;
@@ -476,90 +484,131 @@ function showStars() {
     console.log('Showing starred repositories');
 }
 
-function openRepository(repoName) {
+async function openRepository(repoName) {
+    console.log('openRepository called with:', repoName);
+    console.log('Available repositories:', repositories);
+    
     // Find the repository data
     const repo = repositories.find(r => r.name === repoName);
+    console.log('Found repository:', repo);
     
     if (repo) {
-        // Show repository details in a modal
-        showRepositoryDetailsModal(repo);
+        // Show repository content with actual data
+        console.log('Showing repository content modal');
+        await showRepositoryContentModal(repo);
     } else {
+        console.log('Repository not found');
         showNotification('Repository not found', 'info');
     }
 }
 
-function showRepositoryDetailsModal(repo) {
-    const modal = createRepositoryDetailsModal(repo);
+async function showRepositoryContentModal(repo) {
+    const modal = createRepositoryContentModal(repo);
     document.body.appendChild(modal);
     
     // Setup modal event listeners
-    setupRepositoryDetailsModal(modal);
+    setupRepositoryContentModal(modal);
+    
+    // Load repository content
+    await loadRepositoryContent(repo.name, modal);
 }
 
-function createRepositoryDetailsModal(repo) {
+function createRepositoryContentModal(repo) {
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.innerHTML = `
-        <div class="modal">
+        <div class="modal repository-viewer">
             <div class="modal-header">
                 <h2><i class="fas fa-cube"></i> ${repo.name}</h2>
+                <div class="repo-meta-info">
+                    <span class="visibility-badge ${repo.visibility}">
+                        <i class="fas fa-${repo.visibility === 'public' ? 'globe' : 'lock'}"></i>
+                        ${repo.visibility}
+                    </span>
+                    <span class="language-badge">
+                        <span class="language-dot ${repo.language ? repo.language.toLowerCase() : 'minecraft'}"></span>
+                        ${repo.language || 'Minecraft'}
+                    </span>
+                </div>
             </div>
             <div class="modal-body">
-                <div class="repo-details">
-                    <div class="detail-section">
-                        <h3>Description</h3>
-                        <p>${repo.description || 'No description provided'}</p>
+                <div class="repo-content">
+                    <div class="content-tabs">
+                        <button class="tab-btn active" data-tab="overview">Overview</button>
+                        <button class="tab-btn" data-tab="commits">Commits</button>
+                        <button class="tab-btn" data-tab="blocks">Blocks</button>
                     </div>
                     
-                    <div class="detail-section">
-                        <h3>Information</h3>
-                        <div class="info-grid">
-                            <div class="info-item">
-                                <strong>Visibility:</strong> 
-                                <span class="visibility-badge ${repo.visibility}">
-                                    <i class="fas fa-${repo.visibility === 'public' ? 'globe' : 'lock'}"></i>
-                                    ${repo.visibility}
-                                </span>
+                    <div class="tab-content">
+                        <div class="tab-pane active" id="overview">
+                            <div class="overview-section">
+                                <h3>Description</h3>
+                                <p>${repo.description || 'No description provided'}</p>
                             </div>
-                            <div class="info-item">
-                                <strong>Language:</strong> 
-                                <span class="language-badge">
-                                    <span class="language-dot ${repo.language ? repo.language.toLowerCase() : 'minecraft'}"></span>
-                                    ${repo.language || 'Minecraft'}
-                                </span>
+                            
+                            <div class="overview-section">
+                                <h3>Repository Information</h3>
+                                <div class="info-grid">
+                                    <div class="info-item">
+                                        <strong>Created:</strong> ${repo.created || 'Unknown'}
+                                    </div>
+                                    <div class="info-item">
+                                        <strong>Updated:</strong> ${repo.updated || 'Unknown'}
+                                    </div>
+                                    <div class="info-item">
+                                        <strong>Commits:</strong> <span id="commitCount">Loading...</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <strong>Total Blocks:</strong> <span id="blockCount">Loading...</span>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="info-item">
-                                <strong>Commits:</strong> ${repo.commits || 0}
-                            </div>
-                            <div class="info-item">
-                                <strong>Updated:</strong> ${repo.updated || 'Unknown'}
+                            
+                            <div class="overview-section">
+                                <h3>Actions</h3>
+                                <div class="action-buttons">
+                                    <button class="btn btn-primary" onclick="cloneRepository('${repo.name}')">
+                                        <i class="fas fa-code-branch"></i> Clone
+                                    </button>
+                                    <button class="btn btn-secondary" onclick="downloadRepository('${repo.name}')">
+                                        <i class="fas fa-download"></i> Download
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    
-                    <div class="detail-section">
-                        <h3>Actions</h3>
-                        <div class="action-buttons">
-                            <button class="btn btn-primary" onclick="cloneRepository('${repo.name}')">
-                                <i class="fas fa-code-branch"></i> Clone
-                            </button>
-                            <button class="btn btn-secondary" onclick="downloadRepository('${repo.name}')">
-                                <i class="fas fa-download"></i> Download
-                            </button>
+                        
+                        <div class="tab-pane" id="commits">
+                            <div class="commits-list" id="commitsList">
+                                <div class="loading-spinner">
+                                    <i class="fas fa-spinner fa-spin"></i>
+                                    <span>Loading commit history...</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="tab-pane" id="blocks">
+                            <div class="blocks-viewer" id="blocksViewer">
+                                <div class="loading-spinner">
+                                    <i class="fas fa-spinner fa-spin"></i>
+                                    <span>Loading blocks data...</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" id="closeDetails">Close</button>
+                <button class="btn btn-secondary" id="closeContent">Close</button>
             </div>
         </div>
     `;
     return modal;
 }
 
-function setupRepositoryDetailsModal(modal) {
-    const closeBtn = modal.querySelector('#closeDetails');
+function setupRepositoryContentModal(modal) {
+    const closeBtn = modal.querySelector('#closeContent');
+    const tabBtns = modal.querySelectorAll('.tab-btn');
+    const tabPanes = modal.querySelectorAll('.tab-pane');
     
     const closeModal = () => {
         document.body.removeChild(modal);
@@ -572,6 +621,246 @@ function setupRepositoryDetailsModal(modal) {
             closeModal();
         }
     });
+    
+    // Tab switching
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const targetTab = btn.dataset.tab;
+            
+            // Update active states
+            tabBtns.forEach(b => b.classList.remove('active'));
+            tabPanes.forEach(p => p.classList.remove('active'));
+            
+            btn.classList.add('active');
+            modal.querySelector(`#${targetTab}`).classList.add('active');
+        });
+    });
+}
+
+async function loadRepositoryContent(repoName, modal) {
+    // Find the repository data to check visibility
+    const repo = repositories.find(r => r.name === repoName);
+    
+    // Check if repository is private and user doesn't have access
+    // For private repos, only the owner can view the content
+    if (repo && repo.visibility === 'private' && !currentUser) {
+        showRestrictedAccessMessage(modal, repo);
+        return;
+    }
+    
+    if (!currentUser) {
+        showNotification('Please log in to view repository content', 'error');
+        return;
+    }
+    
+    try {
+        // Load commit history
+        const commitsResponse = await fetch(`${API_BASE_URL}/users/${currentUser.username}/${repoName}/log`);
+        if (commitsResponse.ok) {
+            const commits = await commitsResponse.json();
+            displayCommits(commits, modal);
+            modal.querySelector('#commitCount').textContent = commits.length;
+        } else {
+            console.error('Failed to load commits');
+            modal.querySelector('#commitCount').textContent = '0';
+            modal.querySelector('#commitsList').innerHTML = '<p class="error-message">Failed to load commit history</p>';
+        }
+        
+        // Load current blocks
+        const blocksResponse = await fetch(`${API_BASE_URL}/repos/${currentUser.username}/${repoName}/head-blocks`);
+        if (blocksResponse.ok) {
+            const headData = await blocksResponse.json();
+            displayBlocks(headData.blocks, modal, headData);
+            modal.querySelector('#blockCount').textContent = headData.blocks.length;
+        } else {
+            console.error('Failed to load blocks');
+            modal.querySelector('#blockCount').textContent = '0';
+            modal.querySelector('#blocksViewer').innerHTML = '<p class="error-message">No blocks found in this repository</p>';
+        }
+        
+    } catch (error) {
+        console.error('Failed to load repository content:', error);
+        modal.querySelector('#commitCount').textContent = 'Error';
+        modal.querySelector('#blockCount').textContent = 'Error';
+        modal.querySelector('#commitsList').innerHTML = '<p class="error-message">Failed to load repository content</p>';
+        modal.querySelector('#blocksViewer').innerHTML = '<p class="error-message">Failed to load repository content</p>';
+    }
+}
+
+function displayCommits(commits, modal) {
+    const commitsList = modal.querySelector('#commitsList');
+    
+    if (commits.length === 0) {
+        commitsList.innerHTML = '<p class="empty-message">No commits found in this repository</p>';
+        return;
+    }
+    
+    commitsList.innerHTML = commits.map(commit => `
+        <div class="commit-item">
+            <div class="commit-header">
+                <div class="commit-info">
+                    <h4 class="commit-name">${commit.commit_name}</h4>
+                    <span class="commit-hash">${commit.commit_hash.substring(0, 8)}</span>
+                </div>
+                <div class="commit-time">
+                    ${formatDateTime(new Date(commit.time_stamp))}
+                </div>
+            </div>
+            <div class="commit-message">${commit.message || 'No message'}</div>
+        </div>
+    `).join('');
+}
+
+function showRestrictedAccessMessage(modal, repo) {
+    // Update overview tab with restricted access message
+    const overviewTab = modal.querySelector('#overview');
+    overviewTab.innerHTML = `
+        <div class="overview-section">
+            <div class="restricted-access-notice">
+                <div class="access-icon">
+                    <i class="fas fa-lock"></i>
+                </div>
+                <h3>Private Repository</h3>
+                <p>This repository is private and its content is restricted.</p>
+                <p class="access-description">Only the repository owner can view commits, blocks, and detailed information.</p>
+            </div>
+        </div>
+        
+        <div class="overview-section">
+            <h3>Available Actions</h3>
+            <div class="action-buttons">
+                <button class="btn btn-primary" onclick="cloneRepository('${repo.name}')">
+                    <i class="fas fa-code-branch"></i> Clone
+                </button>
+            </div>
+            <p class="clone-note">You can clone this repository if you have access permissions.</p>
+        </div>
+        
+        <div class="overview-section">
+            <h3>Repository Information</h3>
+            <div class="info-grid">
+                <div class="info-item">
+                    <strong>Visibility:</strong> 
+                    <span class="visibility-badge ${repo.visibility}">
+                        <i class="fas fa-${repo.visibility === 'public' ? 'globe' : 'lock'}"></i>
+                        ${repo.visibility}
+                    </span>
+                </div>
+                <div class="info-item">
+                    <strong>Language:</strong> 
+                    <span class="language-badge">
+                        <span class="language-dot ${repo.language ? repo.language.toLowerCase() : 'minecraft'}"></span>
+                        ${repo.language || 'Minecraft'}
+                    </span>
+                </div>
+                <div class="info-item">
+                    <strong>Created:</strong> ${repo.created || 'Unknown'}
+                </div>
+                <div class="info-item">
+                    <strong>Updated:</strong> ${repo.updated || 'Unknown'}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Update commits tab with restricted message
+    modal.querySelector('#commitsList').innerHTML = `
+        <div class="restricted-access-notice">
+            <div class="access-icon">
+                <i class="fas fa-lock"></i>
+            </div>
+            <h3>Commits Restricted</h3>
+            <p>Commit history is not available for private repositories.</p>
+        </div>
+    `;
+    
+    // Update blocks tab with restricted message
+    modal.querySelector('#blocksViewer').innerHTML = `
+        <div class="restricted-access-notice">
+            <div class="access-icon">
+                <i class="fas fa-lock"></i>
+            </div>
+            <h3>Blocks Data Restricted</h3>
+            <p>Blocks data is not available for private repositories.</p>
+        </div>
+    `;
+    
+    // Update counts
+    modal.querySelector('#commitCount').textContent = 'Restricted';
+    modal.querySelector('#blockCount').textContent = 'Restricted';
+}
+
+function displayBlocks(blocks, modal, headData) {
+    const blocksViewer = modal.querySelector('#blocksViewer');
+    
+    if (blocks.length === 0) {
+        blocksViewer.innerHTML = '<p class="empty-message">No blocks found in this repository</p>';
+        return;
+    }
+    
+    // Group blocks by type for better organization
+    const blocksByType = {};
+    blocks.forEach(block => {
+        if (!blocksByType[block.block_name]) {
+            blocksByType[block.block_name] = [];
+        }
+        blocksByType[block.block_name].push(block);
+    });
+    
+    // Create blocks display
+    let blocksHTML = `
+        <div class="blocks-summary">
+            <h3>Current Commit: ${headData.commit_name}</h3>
+            <p class="commit-message">${headData.message || 'No message'}</p>
+            <div class="blocks-stats">
+                <span class="stat-item">Total Blocks: ${blocks.length}</span>
+                <span class="stat-item">Block Types: ${Object.keys(blocksByType).length}</span>
+            </div>
+        </div>
+        
+        <div class="blocks-list">
+            <h4>Block Types</h4>
+    `;
+    
+    Object.entries(blocksByType).forEach(([blockType, blockList]) => {
+        blocksHTML += `
+            <div class="block-type-group">
+                <h5>
+                    <i class="fas fa-cube"></i>
+                    ${blockType} (${blockList.length})
+                </h5>
+                <div class="block-coordinates">
+                    ${blockList.slice(0, 5).map(block => 
+                        `<span class="coord">(${block.x}, ${block.y}, ${block.z})</span>`
+                    ).join('')}
+                    ${blockList.length > 5 ? `<span class="more-text">... and ${blockList.length - 5} more</span>` : ''}
+                </div>
+            </div>
+        `;
+    });
+    
+    blocksHTML += '</div>';
+    blocksViewer.innerHTML = blocksHTML;
+}
+
+function cloneRepository(repoName) {
+    if (currentUser) {
+        showCloneModal(repoName, currentUser.username);
+    } else {
+        showNotification('Please log in to clone repositories', 'error');
+    }
+}
+
+function downloadRepository(repoName) {
+    if (currentUser) {
+        showNotification(`Downloading ${repoName}...`, 'info');
+        // Simulate download - in real implementation this would trigger actual download
+        setTimeout(() => {
+            showNotification(`${repoName} downloaded successfully!`, 'success');
+        }, 2000);
+    } else {
+        showNotification('Please log in to download repositories', 'error');
+    }
 }
 
 function showCreateRepositoryModal() {
@@ -694,7 +983,7 @@ async function createRepository(modal) {
         console.log('API URL:', `${API_BASE_URL}/repos/${currentUser.username}`);
         
         // Call backend API to create repository
-        const response = await fetch(`${API_BASE_URL}/repos/${currentUser.username}?repo_name=${encodeURIComponent(repoData.name)}&uuid=${currentUser.uuid}`, {
+        const response = await fetch(`${API_BASE_URL}/repos/${currentUser.username}?repo_name=${encodeURIComponent(repoData.name)}&uuid=${currentUser.uuid}&visibility=${encodeURIComponent(repoData.visibility)}`, {
             method: 'POST'
         });
 
@@ -706,12 +995,14 @@ async function createRepository(modal) {
             console.log('Repository created:', result);
             
             // Add to local repositories for display
+            const now = new Date();
             repositories.unshift({
                 name: repoData.name,
                 description: repoData.description,
                 visibility: repoData.visibility,
                 language: 'Minecraft',
-                updated: 'just now',
+                updated: formatDateTime(now),
+                created: formatDateTime(now),
                 commits: 0
             });
 
@@ -742,6 +1033,17 @@ async function createRepository(modal) {
             alert(`Failed to create repository: ${error.message || error.toString()}`);
         }
     }
+}
+
+function formatDateTime(date) {
+    const options = {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    };
+    return date.toLocaleDateString('en-US', options);
 }
 
 // Test function to check backend connectivity
@@ -783,30 +1085,94 @@ function createCloneModal(repoName, username) {
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.innerHTML = `
-        <div class="modal">
+        <div class="modal clone-modal">
             <div class="modal-header">
-                <h2>🔗 Clone Repository</h2>
+                <h2><i class="fas fa-code-branch"></i> Clone Repository</h2>
+                <div class="repo-source">
+                    <span class="repo-path">${username}/${repoName}</span>
+                    <span class="clone-badge">Ready to clone</span>
+                </div>
             </div>
             <div class="modal-body">
-                <div class="clone-info">
-                    <p><strong>Repository:</strong> ${username}/${repoName}</p>
-                    <p><strong>Clone URL:</strong> <code>http://127.0.0.1:8000/repos/${username}/${repoName}</code></p>
+                <div class="clone-tabs">
+                    <button class="tab-btn active" data-tab="quick">Quick Clone</button>
+                    <button class="tab-btn" data-tab="commands">Commands</button>
                 </div>
-                <div class="form-group">
-                    <label for="cloneRepoName">New repository name</label>
-                    <input type="text" id="cloneRepoName" value="${repoName}-clone" placeholder="Enter new repository name">
-                </div>
-                <div class="clone-commands">
-                    <h3>Minecraft Commands:</h3>
-                    <div class="command-block">
-                        <code>/git clone ${repoName}-clone http://127.0.0.1:8000/repos/${username}/${repoName}</code>
-                        <button class="copy-btn" data-command="/git clone ${repoName}-clone http://127.0.0.1:8000/repos/${username}/${repoName}">📋 Copy</button>
+                
+                <div class="tab-content">
+                    <div class="tab-pane active" id="quick">
+                        <div class="quick-clone-section">
+                            <div class="clone-options">
+                                <div class="option-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="includeCommits" checked>
+                                        <span class="checkmark"></span>
+                                        Include all commits
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="includeBlocks" checked>
+                                        <span class="checkmark"></span>
+                                        Include all blocks
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="clone-preview">
+                                <h4>Preview</h4>
+                                <div class="preview-item">
+                                    <i class="fas fa-folder"></i>
+                                    <span id="previewName">${repoName}-clone</span>
+                                </div>
+                                <div class="preview-details">
+                                    <span id="previewSize">Calculating...</span>
+                                    <span id="previewCommits">Unknown commits</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="tab-pane" id="commands">
+                        <div class="command-section">
+                            <h4>Minecraft Clone Commands</h4>
+                            <div class="command-blocks">
+                                <div class="command-block">
+                                    <div class="command-header">
+                                        <span class="command-type">Basic Clone</span>
+                                        <button class="copy-btn" data-command="/git clone ${repoName}-clone http://127.0.0.1:8000/repos/${username}/${repoName}">
+                                            <i class="fas fa-copy"></i>
+                                        </button>
+                                    </div>
+                                    <code class="command-text">/git clone ${repoName}-clone http://127.0.0.1:8000/repos/${username}/${repoName}</code>
+                                </div>
+                                
+                                <div class="command-block">
+                                    <div class="command-header">
+                                        <span class="command-type">With Custom Name</span>
+                                        <button class="copy-btn" data-command="/git clone my-${repoName} http://127.0.0.1:8000/repos/${username}/${repoName}">
+                                            <i class="fas fa-copy"></i>
+                                        </button>
+                                    </div>
+                                    <code class="command-text">/git clone my-${repoName} http://127.0.0.1:8000/repos/${username}/${repoName}</code>
+                                </div>
+                            </div>
+                            
+                            <div class="clone-url-section">
+                                <h4>Repository URL</h4>
+                                <div class="url-block">
+                                    <code class="url-text">http://127.0.0.1:8000/repos/${username}/${repoName}</code>
+                                    <button class="copy-btn" data-command="http://127.0.0.1:8000/repos/${username}/${repoName}">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" id="cancelClone">Cancel</button>
-                <button class="btn btn-primary" id="confirmClone">Clone Repository</button>
+                <button class="btn btn-secondary" id="cancelClone">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
             </div>
         </div>
     `;
@@ -816,10 +1182,37 @@ function createCloneModal(repoName, username) {
 function setupCloneModal(modal) {
     const cancelBtn = modal.querySelector('#cancelClone');
     const confirmBtn = modal.querySelector('#confirmClone');
+    const tabBtns = modal.querySelectorAll('.tab-btn');
+    const tabPanes = modal.querySelectorAll('.tab-pane');
+    const previewName = modal.querySelector('#previewName');
     
     const closeModal = () => {
         document.body.removeChild(modal);
     };
+    
+    // Tab switching functionality
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const targetTab = btn.dataset.tab;
+            
+            // Update active states
+            tabBtns.forEach(b => b.classList.remove('active'));
+            tabPanes.forEach(p => p.classList.remove('active'));
+            
+            btn.classList.add('active');
+            modal.querySelector(`#${targetTab}`).classList.add('active');
+        });
+    });
+    
+    // Checkbox interactions
+    const includeCommits = modal.querySelector('#includeCommits');
+    const includeBlocks = modal.querySelector('#includeBlocks');
+    
+    [includeCommits, includeBlocks].forEach(checkbox => {
+        checkbox.addEventListener('change', () => {
+            updateClonePreview(modal);
+        });
+    });
     
     cancelBtn.addEventListener('click', closeModal);
     
@@ -833,38 +1226,112 @@ function setupCloneModal(modal) {
         performClone(modal);
     });
     
-    // Copy button functionality
+    // Enhanced copy button functionality
     modal.addEventListener('click', (e) => {
-        if (e.target.classList.contains('copy-btn')) {
-            const command = e.target.dataset.command;
+        if (e.target.closest('.copy-btn')) {
+            const btn = e.target.closest('.copy-btn');
+            const command = btn.dataset.command;
+            
             navigator.clipboard.writeText(command).then(() => {
-                e.target.textContent = '✅ Copied!';
+                const originalHTML = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-check"></i>';
+                btn.classList.add('copied');
+                
                 setTimeout(() => {
-                    e.target.textContent = '📋 Copy';
+                    btn.innerHTML = originalHTML;
+                    btn.classList.remove('copied');
                 }, 2000);
             });
         }
     });
+    
+    // Initialize preview and load repository stats
+    updateClonePreview(modal);
+    loadRepositoryStats(modal);
 }
 
-async function performClone(modal) {
-    const repoNameInput = modal.querySelector('#cloneRepoName');
-    const newRepoName = repoNameInput.value.trim();
+async function loadRepositoryStats(modal) {
+    const repoPath = modal.querySelector('.repo-path').textContent;
+    const [username, repoName] = repoPath.split('/');
     
-    if (!newRepoName) {
-        alert('Repository name is required');
-        return;
+    try {
+        // Get commit history to count commits
+        const commitsResponse = await fetch(`${API_BASE_URL}/users/${username}/${repoName}/log`);
+        if (commitsResponse.ok) {
+            const commits = await commitsResponse.json();
+            modal.querySelector('#sourceCommits').textContent = commits.length;
+        }
+        
+        // Get blocks data to count blocks
+        const blocksResponse = await fetch(`${API_BASE_URL}/repos/${username}/${repoName}/head-blocks`);
+        if (blocksResponse.ok) {
+            const data = await blocksResponse.json();
+            const blockCount = data.blocks ? data.blocks.length : 0;
+            modal.querySelector('#sourceBlocks').textContent = blockCount;
+            
+            // Estimate size (rough calculation)
+            const estimatedSize = Math.max(1, Math.round(blockCount * 0.1)); // Rough estimate
+            modal.querySelector('#sourceSize').textContent = `~${estimatedSize} KB`;
+        }
+        
+        // Update preview
+        updateClonePreview(modal);
+        
+    } catch (error) {
+        console.error('Failed to load repository stats:', error);
+        modal.querySelector('#sourceCommits').textContent = 'Unknown';
+        modal.querySelector('#sourceBlocks').textContent = 'Unknown';
+        modal.querySelector('#sourceSize').textContent = 'Unknown';
+    }
+}
+
+function updateClonePreview(modal) {
+    const includeCommits = modal.querySelector('#includeCommits').checked;
+    const includeBlocks = modal.querySelector('#includeBlocks').checked;
+    const previewSize = modal.querySelector('#previewSize');
+    const previewCommits = modal.querySelector('#previewCommits');
+    
+    const sourceCommits = modal.querySelector('#sourceCommits').textContent;
+    const sourceBlocks = modal.querySelector('#sourceBlocks').textContent;
+    
+    const commitsCount = includeCommits && sourceCommits !== 'Loading...' && sourceCommits !== 'Unknown' ? sourceCommits : '0';
+    const blocksCount = includeBlocks && sourceBlocks !== 'Loading...' && sourceBlocks !== 'Unknown' ? sourceBlocks : '0';
+    
+    previewCommits.textContent = `${commitsCount} commits`;
+    
+    // Estimate size based on what's included
+    let sizeKB = 0;
+    if (includeCommits) {
+        sizeKB += parseInt(commitsCount) * 2; // Rough estimate per commit
+    }
+    if (includeBlocks) {
+        sizeKB += parseInt(blocksCount) * 0.1; // Rough estimate per block
     }
     
+    previewSize.textContent = sizeKB > 0 ? `~${Math.max(1, Math.round(sizeKB))} KB` : 'Minimal';
+}
+
+
+async function performClone(modal) {
+    const includeCommits = modal.querySelector('#includeCommits').checked;
+    const includeBlocks = modal.querySelector('#includeBlocks').checked;
+    
+    // Get source repository info and generate default clone name
+    const repoPath = modal.querySelector('.repo-path').textContent;
+    const [sourceUsername, sourceRepoName] = repoPath.split('/');
+    const newRepoName = `${sourceRepoName}-clone`;
+    
     if (!currentUser) {
-        alert('You must be logged in to clone repositories');
+        showNotification('You must be logged in to clone repositories', 'error');
         return;
     }
     
     try {
-        // Get the source repo info from the button that triggered this modal
-        const sourceRepo = modal.querySelector('.clone-info strong').textContent;
-        const [sourceUsername, sourceRepoName] = sourceRepo.replace('Repository: ', '').split('/');
+        // Show loading state
+        const confirmBtn = modal.querySelector('#confirmClone');
+        const originalText = confirmBtn.innerHTML;
+        confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cloning...';
+        confirmBtn.disabled = true;
         
         const response = await fetch(`${API_BASE_URL}/repos/${currentUser.username}/clone`, {
             method: 'POST',
@@ -881,7 +1348,7 @@ async function performClone(modal) {
         
         if (response.ok) {
             const result = await response.json();
-            alert(`Repository cloned successfully! New repo: ${newRepoName}`);
+            showNotification(`Repository "${newRepoName}" cloned successfully!`, 'success');
             
             // Refresh repositories list
             await loadRepositories();
@@ -890,11 +1357,21 @@ async function performClone(modal) {
             document.body.removeChild(modal);
         } else {
             const error = await response.json();
-            alert(`Failed to clone repository: ${error.detail || 'Unknown error'}`);
+            showNotification(`Failed to clone repository: ${error.detail || 'Unknown error'}`, 'error');
         }
+        
+        // Reset button state
+        confirmBtn.innerHTML = originalText;
+        confirmBtn.disabled = false;
+        
     } catch (error) {
         console.error('Clone failed:', error);
-        alert('Failed to clone repository. Please try again.');
+        showNotification('Failed to clone repository. Please try again.', 'error');
+        
+        // Reset button state
+        const confirmBtn = modal.querySelector('#confirmClone');
+        confirmBtn.innerHTML = '<i class="fas fa-download"></i> Clone Repository';
+        confirmBtn.disabled = false;
     }
 }
 

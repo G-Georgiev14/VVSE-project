@@ -180,8 +180,9 @@ def get_log(username: str, repo_name: str):
 # Repository Management Endpoints
 
 @app.post("/repos/{username}")
-def create_repo(username: str, repo_name: str, uuid: str, db: Session = Depends(get_database)):
-    """Initialize a new repository for a user"""
+def create_repo(username: str, repo_name: str, uuid: str, visibility: str = 'public', db: Session = Depends(get_database)):
+    """Create a new repository"""
+    # Verify user exists and owns the repository
     user_check = db.query(exists().where(and_(models.User.uuid == uuid, models.User.username == username))).scalar()
     if not user_check:
         raise HTTPException(status_code=404, detail="User doesn't exist")
@@ -191,10 +192,11 @@ def create_repo(username: str, repo_name: str, uuid: str, db: Session = Depends(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Check if repository already exists in database
-    existing_repo = db.query(models.Repo).filter(
-        and_(models.Repo.name == repo_name, models.Repo.creator_id == user.id)
-    ).first()
+    # Check if repository already exists
+    existing_repo = db.query(models.Repo).filter(and_(
+        models.Repo.name == repo_name,
+        models.Repo.creator_id == user.id
+    )).first()
     
     if existing_repo:
         raise HTTPException(status_code=400, detail="Repository already exists")
@@ -202,7 +204,8 @@ def create_repo(username: str, repo_name: str, uuid: str, db: Session = Depends(
     # Create repository record in database
     new_repo = models.Repo(
         name=repo_name,
-        creator_id=user.id
+        creator_id=user.id,
+        visibility=visibility
     )
     
     db.add(new_repo)
@@ -236,7 +239,7 @@ def list_repos(username: str, uuid: str, db: Session = Depends(get_database)):
     # Get repositories from database
     repos = db.query(models.Repo).filter(models.Repo.creator_id == user.id).all()
     
-    return {"repos": [repo.name for repo in repos]}
+    return {"repos": [{"name": repo.name, "visibility": repo.visibility} for repo in repos]}
 
 
 @app.get("/repos/{username}/{repo_name}/exists")
@@ -271,13 +274,45 @@ def delete_repo(username: str, repo_name: str, uuid: str, db: Session = Depends(
     
     import os
     import shutil
+    import gc
+    import time
     
     repo_path = os.path.join(database.DATA_ROOT, username, repo_name)
     
     try:
-        # Delete all files and directories
-        if os.path.exists(repo_path):
-            shutil.rmtree(repo_path)
+        # Close all database connections for this repository first
+        # This is crucial to prevent file locking issues
+        close_repository_connections(username, repo_name)
+        
+        # Force garbage collection to ensure connections are closed
+        gc.collect()
+        
+        # Multiple attempts with increasing delays
+        max_attempts = 3
+        for attempt in range(max_attempts):
+            try:
+                # Additional delay for subsequent attempts
+                if attempt > 0:
+                    time.sleep(0.5 * attempt)
+                
+                # Try to delete the repository directory
+                if os.path.exists(repo_path):
+                    shutil.rmtree(repo_path)
+                
+                # If we get here, deletion succeeded
+                break
+                
+            except (OSError, PermissionError) as e:
+                if attempt == max_attempts - 1:
+                    # Last attempt failed, try alternative method
+                    try:
+                        force_delete_repository(repo_path)
+                    except Exception as alt_e:
+                        raise Exception(f"Failed to delete repository after {max_attempts} attempts: {str(e)}. Alternative method also failed: {str(alt_e)}")
+                else:
+                    # Retry after closing connections again
+                    close_repository_connections(username, repo_name)
+                    gc.collect()
         
         # Delete from database
         db.delete(repo)
@@ -288,6 +323,91 @@ def delete_repo(username: str, repo_name: str, uuid: str, db: Session = Depends(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to delete repository: {str(e)}")
+
+def force_delete_repository(repo_path):
+    """Force delete repository using alternative methods"""
+    import stat
+    import tempfile
+    
+    if not os.path.exists(repo_path):
+        return
+    
+    # Method 1: Try to change file permissions and delete
+    try:
+        for root, dirs, files in os.walk(repo_path):
+            for file in files:
+                file_path = os.path.join(root, file)
+                try:
+                    # Remove read-only attribute
+                    os.chmod(file_path, stat.S_IWRITE | stat.S_IREAD)
+                except:
+                    pass
+        shutil.rmtree(repo_path)
+        return
+    except:
+        pass
+    
+    # Method 2: Try moving files to temp directory first
+    try:
+        temp_dir = tempfile.mkdtemp()
+        for item in os.listdir(repo_path):
+            try:
+                shutil.move(os.path.join(repo_path, item), temp_dir)
+            except:
+                pass
+        shutil.rmtree(repo_path)
+        shutil.rmtree(temp_dir)
+        return
+    except:
+        pass
+    
+    # Method 3: Last resort - individual file deletion
+    try:
+        for root, dirs, files in os.walk(repo_path, topdown=False):
+            for file in files:
+                try:
+                    file_path = os.path.join(root, file)
+                    os.chmod(file_path, stat.S_IWRITE | stat.S_IREAD)
+                    os.remove(file_path)
+                except:
+                    pass
+            for dir in dirs:
+                try:
+                    dir_path = os.path.join(root, dir)
+                    os.rmdir(dir_path)
+                except:
+                    pass
+        os.rmdir(repo_path)
+    except:
+        pass
+
+def close_repository_connections(username: str, repo_name: str):
+    """Close all active database connections for a specific repository"""
+    # This function helps ensure all SQLite connections are closed before deletion
+    try:
+        # Force close all possible database connections
+        repo_dir = os.path.join(database.DATA_ROOT, username, repo_name)
+        if os.path.exists(repo_dir):
+            for file in os.listdir(repo_dir):
+                if file.endswith(".db"):
+                    db_path = os.path.join(repo_dir, file)
+                    try:
+                        # Try to open and close the database to force connection release
+                        import sqlite3
+                        conn = sqlite3.connect(db_path)
+                        conn.close()
+                    except:
+                        pass
+                    
+                    try:
+                        # Also try with SQLAlchemy engine
+                        temp_engine = database.create_engine(f"sqlite:///{db_path}")
+                        temp_engine.dispose()
+                    except:
+                        pass
+    except Exception as e:
+        print(f"Warning: Could not close some database connections: {e}")
+        # Continue with deletion even if connection closing fails
 
 
 @app.get("/repos/{username}/{repo_name}/commits/{commit_hash}/blocks")
