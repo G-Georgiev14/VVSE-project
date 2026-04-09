@@ -13,6 +13,7 @@ public class BackendApiClient {
     private static final String BASE_URL = "http://127.0.0.1:8000";
     private static final int TIMEOUT_SECONDS = 10;
     private static final HttpClient client = HttpClient.newBuilder()
+            .version(HttpClient.Version.HTTP_1_1)
             .connectTimeout(Duration.ofSeconds(TIMEOUT_SECONDS))
             .build();
     private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();

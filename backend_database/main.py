@@ -113,7 +113,7 @@ def create_commit(username: str,
     if not user_check:
         raise HTTPException(status_code=404, detail="User doesn't exist")
     
-    commit_database = database.get_commit_database_session(username, repo_name, commit_name)
+    commit_database = database.get_commit_database_session(username, repo_name, commit_hash)
 
     new_block = [models.Commit(**b.model_dump()) for b in blocks]
     commit_database.add_all(new_block)
@@ -174,7 +174,16 @@ def get_log(username: str, repo_name: str):
     history = meta_database.query(models.RepoMetadata).order_by(models.RepoMetadata.time_stamp.desc()).all()
     meta_database.close()
 
-    return history
+    return [
+        {
+            "commit_name": h.commit_name,
+            "commit_hash": h.commit_hash,
+            "message": h.message,
+            "time_stamp": h.time_stamp.isoformat() if h.time_stamp else None,
+            "is_active": h.is_active
+        }
+        for h in history
+    ]
 
 
 # Repository Management Endpoints
@@ -442,7 +451,7 @@ def get_head_blocks(username: str, repo_name: str):
         raise HTTPException(status_code=404, detail="No commits found in repository")
     
     # Get blocks from the HEAD commit
-    commit_db = database.get_commit_database_session(username, repo_name, head_commit.commit_name)
+    commit_db = database.get_commit_database_session(username, repo_name, head_commit.commit_hash)
     blocks = commit_db.query(models.Commit).all()
     commit_db.close()
     

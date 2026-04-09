@@ -19,6 +19,7 @@ import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -358,23 +359,103 @@ public class GitCommand {
         ServerPlayer player = getPlayer(context);
         PlayerSession session = SessionManager.getSession(player);
         String repoName = StringArgumentType.getString(context, "name");
-        
+
         checkAuthenticated(session, context.getSource());
-        
+
         // Check if repo exists
         ApiResponse response = BackendApiClient.repoExists(session.getUsername(), repoName);
         if (response.success && response.data != null) {
             JsonObject data = response.data.getAsJsonObject();
             if (data.has("exists") && data.get("exists").getAsBoolean()) {
                 session.setCurrentRepo(repoName);
-                context.getSource().sendSuccess(() -> 
-                    Component.literal("§aSwitched to repository: " + repoName), false);
+
+                // Load HEAD commit and check for missing blocks
+                int missingCount = loadAndCheckHeadCommit(player, session);
+
+                context.getSource().sendSuccess(() ->
+                    Component.literal("§aSwitched to repository: " + repoName +
+                        (missingCount > 0 ? " §7(" + missingCount + " blocks to restore)" : "")), false);
                 return 1;
             }
         }
-        
+
         context.getSource().sendFailure(Component.literal("§cRepository not found: " + repoName));
         return 0;
+    }
+
+    private static int loadAndCheckHeadCommit(ServerPlayer player, PlayerSession session) {
+        if (!BackendApiClient.isServerOnline() || !session.hasActiveRepo()) {
+            return 0;
+        }
+
+        int missingCount = 0;
+        BlockState airState = net.minecraft.world.level.block.Blocks.AIR.defaultBlockState();
+
+        // Get HEAD commit blocks
+        ApiResponse logResponse = BackendApiClient.getLog(session.getUsername(), session.getCurrentRepo());
+        if (logResponse.success && logResponse.data != null) {
+            JsonArray commits = logResponse.data.getAsJsonArray();
+            if (commits.size() > 0) {
+                String headHash = commits.get(0).getAsJsonObject().get("commit_hash").getAsString();
+                ApiResponse blocksResponse = BackendApiClient.getCommitBlocks(
+                    session.getUsername(), session.getCurrentRepo(), headHash);
+
+                if (blocksResponse.success && blocksResponse.data != null) {
+                    JsonArray headBlocks = blocksResponse.data.getAsJsonArray();
+
+                    for (JsonElement element : headBlocks) {
+                        JsonObject block = element.getAsJsonObject();
+                        String blockName = block.get("block_name").getAsString();
+
+                        // Skip AIR blocks
+                        if (blockName.equals("minecraft:air") || blockName.equals("air")) {
+                            continue;
+                        }
+
+                        int x = block.get("x").getAsInt();
+                        int y = block.get("y").getAsInt();
+                        int z = block.get("z").getAsInt();
+                        BlockPos pos = new BlockPos(x, y, z);
+
+                        // Check if block exists in world
+                        BlockState worldState = player.level().getBlockState(pos);
+                        String worldBlockName = BuiltInRegistries.BLOCK.getKey(worldState.getBlock()).toString();
+
+                        if (!worldBlockName.equals(blockName)) {
+                            // Block is missing or different - add ghost block and stage as removed
+                            missingCount++;
+
+                            // Add ghost block so player can see where to build
+                            BlockState ghostState = parseBlockState(blockName);
+                            if (ghostState != null) {
+                                GhostBlockManager.addGhostBlock(player.getUUID(), pos, ghostState);
+                                // Send ghost block to player
+                                ClientboundBlockUpdatePacket packet = new ClientboundBlockUpdatePacket(pos, ghostState);
+                                player.connection.send(packet);
+                            }
+
+                            // Stage as removed (so placing it back will show no change)
+                            session.stageBlock(pos, ghostState, airState, PlayerSession.ChangeType.REMOVE);
+                        }
+                    }
+                }
+            }
+        }
+
+        return missingCount;
+    }
+
+    private static BlockState parseBlockState(String blockName) {
+        try {
+            for (var entry : BuiltInRegistries.BLOCK.entrySet()) {
+                if (entry.getKey().toString().equals(blockName)) {
+                    return entry.getValue().defaultBlockState();
+                }
+            }
+        } catch (Exception e) {
+            GitBuildMod.LOGGER.warn("Failed to parse block: {}", blockName, e);
+        }
+        return null;
     }
 
     private static int executeRepoList(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
@@ -652,84 +733,303 @@ public class GitCommand {
         ServerPlayer player = getPlayer(context);
         PlayerSession session = SessionManager.getSession(player);
         String message = StringArgumentType.getString(context, "message");
-        
+
         checkServerOnline(context.getSource());
         checkAuthenticated(session, context.getSource());
         checkRepoActive(session, context.getSource());
-        
+
         Map<BlockPos, BlockChange> staged = session.getStagingArea();
-        if (staged.isEmpty()) {
-            context.getSource().sendFailure(Component.literal("§cNothing to commit. Use /git add to stage changes."));
-            return 0;
+
+        // Get previous commit blocks (if any) for full snapshot mode
+        List<BlockData> allBlocks = new ArrayList<>();
+        ApiResponse logResponse = BackendApiClient.getLog(session.getUsername(), session.getCurrentRepo());
+
+        if (logResponse.success && logResponse.data != null) {
+            JsonArray commits = logResponse.data.getAsJsonArray();
+            if (commits.size() > 0) {
+                String headHash = commits.get(0).getAsJsonObject().get("commit_hash").getAsString();
+                ApiResponse blocksResponse = BackendApiClient.getCommitBlocks(
+                    session.getUsername(), session.getCurrentRepo(), headHash);
+
+                if (blocksResponse.success && blocksResponse.data != null) {
+                    // Add previous blocks (excluding ones we're replacing)
+                    JsonArray prevBlocks = blocksResponse.data.getAsJsonArray();
+                    Set<String> stagedPositions = new HashSet<>();
+
+                    // First, collect positions of staged changes
+                    for (Map.Entry<BlockPos, BlockChange> entry : staged.entrySet()) {
+                        BlockPos pos = entry.getKey();
+                        stagedPositions.add(pos.getX() + "," + pos.getY() + "," + pos.getZ());
+                    }
+
+                    // Add previous blocks that aren't being replaced
+                    for (JsonElement element : prevBlocks) {
+                        JsonObject block = element.getAsJsonObject();
+                        String blockName = block.get("block_name").getAsString();
+
+                        // Skip AIR blocks
+                        if (blockName.equals("minecraft:air") || blockName.equals("air")) {
+                            continue;
+                        }
+
+                        String posKey = block.get("x").getAsInt() + "," +
+                                        block.get("y").getAsInt() + "," +
+                                        block.get("z").getAsInt();
+
+                        if (!stagedPositions.contains(posKey)) {
+                            allBlocks.add(new BlockData(
+                                block.get("x").getAsInt(),
+                                block.get("y").getAsInt(),
+                                block.get("z").getAsInt(),
+                                blockName,
+                                block.get("block_state").getAsString()
+                            ));
+                        }
+                    }
+                }
+            }
         }
-        
-        // Convert staged changes to block data
-        List<BlockData> blocks = new ArrayList<>();
+
+        // Add staged changes (new/modified blocks)
         StringBuilder commitData = new StringBuilder();
         for (Map.Entry<BlockPos, BlockChange> entry : staged.entrySet()) {
             BlockPos pos = entry.getKey();
             BlockChange change = entry.getValue();
             String blockName = BuiltInRegistries.BLOCK.getKey(change.newState.getBlock()).toString();
+
+            // Skip if new state is AIR (block was removed)
+            if (blockName.equals("minecraft:air")) {
+                continue;
+            }
+
             String blockState = change.newState.toString();
-            blocks.add(new BlockData(pos.getX(), pos.getY(), pos.getZ(), blockName, blockState));
+            allBlocks.add(new BlockData(pos.getX(), pos.getY(), pos.getZ(), blockName, blockState));
             commitData.append(pos.toString()).append(blockName);
         }
-        
+
+        // Check for empty commit
+        if (allBlocks.isEmpty()) {
+            context.getSource().sendFailure(Component.literal("§cNothing to commit - all blocks would be empty."));
+            return 0;
+        }
+
         // Generate commit hash
         String commitHash = generateHash(session.getUsername() + session.getCurrentRepo() + message + commitData.toString() + System.currentTimeMillis());
         String commitName = "commit-" + commitHash.substring(0, 8);
-        
+
+        // Send full snapshot to backend
         ApiResponse response = BackendApiClient.createCommit(
-            session.getUsername(), 
-            session.getCurrentRepo(), 
+            session.getUsername(),
+            session.getCurrentRepo(),
             session.getUuid(),
-            commitName, 
-            commitHash, 
-            message, 
-            blocks
+            commitName,
+            commitHash,
+            message,
+            allBlocks  // Full snapshot, not just staged
         );
-        
+
         if (response.success) {
             session.clearStaging();
-            context.getSource().sendSuccess(() -> 
+            context.getSource().sendSuccess(() ->
                 Component.literal("§aCommitted: " + message + " §7(" + commitHash.substring(0, 8) + ")"), false);
             return 1;
         }
-        
+
         context.getSource().sendFailure(Component.literal("§cCommit failed: " + response.message));
         return 0;
+    }
+
+    // Helper class for status entries
+    private static class StatusEntry {
+        final BlockPos pos;
+        final String description;
+
+        StatusEntry(BlockPos pos, String description) {
+            this.pos = pos;
+            this.description = description;
+        }
+    }
+
+    // Helper class to store head block info
+    private static class HeadBlock {
+        final String blockName;
+        final String blockState;
+
+        HeadBlock(String blockName, String blockState) {
+            this.blockName = blockName;
+            this.blockState = blockState;
+        }
     }
 
     private static int executeStatus(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         ServerPlayer player = getPlayer(context);
         PlayerSession session = SessionManager.getSession(player);
-        
+
         checkRepoActive(session, context.getSource());
-        
+
         Map<BlockPos, BlockChange> staged = session.getStagingArea();
-        StringBuilder sb = new StringBuilder();
-        
-        sb.append("§aRepository: §f").append(session.getCurrentRepo()).append("\n");
-        sb.append("§aStaged changes: §f").append(staged.size()).append(" blocks\n");
-        
-        if (!staged.isEmpty()) {
-            sb.append("§7Staged blocks:\n");
-            int count = 0;
-            for (Map.Entry<BlockPos, BlockChange> entry : staged.entrySet()) {
-                if (count++ >= 10) {
-                    sb.append("  §7... and ").append(staged.size() - 10).append(" more\n");
-                    break;
+
+        // Fetch HEAD commit blocks for comparison
+        Map<String, HeadBlock> headBlocks = new HashMap<>();
+        if (BackendApiClient.isServerOnline()) {
+            GitBuildMod.LOGGER.warn("Status: Fetching log for {}/{}", session.getUsername(), session.getCurrentRepo());
+            ApiResponse logResponse = BackendApiClient.getLog(session.getUsername(), session.getCurrentRepo());
+            GitBuildMod.LOGGER.warn("Status: logResponse.success={}, data={}", logResponse.success, logResponse.data);
+            if (logResponse.success && logResponse.data != null) {
+                JsonArray commits = logResponse.data.getAsJsonArray();
+                GitBuildMod.LOGGER.warn("Status: commits.size={}", commits.size());
+                if (commits.size() > 0) {
+                    String headHash = commits.get(0).getAsJsonObject().get("commit_hash").getAsString();
+                    GitBuildMod.LOGGER.warn("Status: headHash={}", headHash);
+                    ApiResponse blocksResponse = BackendApiClient.getCommitBlocks(
+                        session.getUsername(), session.getCurrentRepo(), headHash);
+                    GitBuildMod.LOGGER.warn("Status: blocksResponse.success={}, data={}", blocksResponse.success, blocksResponse.data);
+
+                    if (blocksResponse.success && blocksResponse.data != null) {
+                        JsonArray prevBlocks = blocksResponse.data.getAsJsonArray();
+                        GitBuildMod.LOGGER.warn("Status: prevBlocks.size={}", prevBlocks.size());
+                        for (JsonElement element : prevBlocks) {
+                            JsonObject block = element.getAsJsonObject();
+                            String posKey = block.get("x").getAsInt() + "," +
+                                          block.get("y").getAsInt() + "," +
+                                          block.get("z").getAsInt();
+                            headBlocks.put(posKey, new HeadBlock(
+                                block.get("block_name").getAsString(),
+                                block.get("block_state").getAsString()
+                            ));
+                        }
+                    }
                 }
-                BlockPos pos = entry.getKey();
-                BlockChange change = entry.getValue();
-                String type = change.type == ChangeType.ADD ? "+" : change.type == ChangeType.REMOVE ? "-" : "~";
-                sb.append("  §7").append(type).append(" ").append(formatPos(pos)).append("\n");
             }
         }
-        
+
+        // Get ghost blocks (loaded commit state) for comparison
+        Map<BlockPos, BlockState> ghostBlocks = GhostBlockManager.getGhostBlocks(player.getUUID());
+        GitBuildMod.LOGGER.warn("Status: headBlocks={}, ghostBlocks={}, staged={}",
+            headBlocks.size(), ghostBlocks.size(), staged.size());
+
+        // Categorize staged changes
+        List<StatusEntry> newBlocks = new ArrayList<>();
+        List<StatusEntry> removedBlocks = new ArrayList<>();
+        List<StatusEntry> modifiedBlocks = new ArrayList<>();
+
+        for (Map.Entry<BlockPos, BlockChange> entry : staged.entrySet()) {
+            BlockPos pos = entry.getKey();
+            BlockChange change = entry.getValue();
+            String posKey = pos.getX() + "," + pos.getY() + "," + pos.getZ();
+            String blockName = BuiltInRegistries.BLOCK.getKey(change.newState.getBlock()).toString();
+            String blockState = change.newState.toString();
+
+            // Check ghost blocks first (loaded commit state) - this is the "expected" state
+            if (ghostBlocks.containsKey(pos)) {
+                BlockState ghostState = ghostBlocks.get(pos);
+                String ghostName = BuiltInRegistries.BLOCK.getKey(ghostState.getBlock()).toString();
+                String ghostStateStr = ghostState.toString();
+                GitBuildMod.LOGGER.warn("Ghost check at {}: staged={}/{}, ghost={}/{}",
+                    posKey, blockName, blockState, ghostName, ghostStateStr);
+                if (blockName.equals(ghostName) && blockState.equals(ghostStateStr)) {
+                    GitBuildMod.LOGGER.warn("  -> Skipping, matches ghost block (loaded commit)");
+                    continue; // Identical to loaded commit, don't show as change
+                }
+            }
+
+            // Also check HEAD as fallback
+            if (headBlocks.containsKey(posKey)) {
+                HeadBlock headBlock = headBlocks.get(posKey);
+                GitBuildMod.LOGGER.warn("HEAD check at {}: staged={}/{}, head={}/{}",
+                    posKey, blockName, blockState, headBlock.blockName, headBlock.blockState);
+                if (blockName.equals(headBlock.blockName) &&
+                    blockState.equals(headBlock.blockState)) {
+                    GitBuildMod.LOGGER.warn("  -> Skipping, matches HEAD");
+                    continue; // Identical to HEAD, don't show as change
+                }
+            }
+
+            if (headBlocks.containsKey(posKey)) {
+                HeadBlock headBlock = headBlocks.get(posKey);
+                if (blockName.equals("minecraft:air")) {
+                    // Block removed
+                    removedBlocks.add(new StatusEntry(pos, headBlock.blockName));
+                } else if (!blockName.equals(headBlock.blockName)) {
+                    // Block type changed
+                    modifiedBlocks.add(new StatusEntry(pos, headBlock.blockName + " → " + blockName));
+                } else {
+                    // Same block type - check state
+                    if (!blockState.equals(headBlock.blockState)) {
+                        modifiedBlocks.add(new StatusEntry(pos, headBlock.blockName + " (state changed)"));
+                    }
+                    // If identical, don't show (block deleted and placed back)
+                }
+            } else {
+                // New block
+                if (!blockName.equals("minecraft:air")) {
+                    newBlocks.add(new StatusEntry(pos, blockName));
+                }
+            }
+        }
+
+        // Build output with colors
+        StringBuilder sb = new StringBuilder();
+
+        int totalChanges = newBlocks.size() + removedBlocks.size() + modifiedBlocks.size();
+
+        // Repository name with summary counts on same line
+        sb.append("§aRepository: §f").append(session.getCurrentRepo());
+        if (totalChanges > 0) {
+            sb.append(" §7(");
+            sb.append("§a+").append(newBlocks.size()).append("§7, ");
+            sb.append("§c-").append(removedBlocks.size()).append("§7, ");
+            sb.append("§e~").append(modifiedBlocks.size());
+            sb.append("§7)");
+        }
+        sb.append("\n");
+
+        if (totalChanges == 0) {
+            sb.append("§aNo changes\n");
+        } else {
+
+            // Show max 8 changes total
+            final int MAX_DISPLAY = 8;
+            int displayed = 0;
+            int skipped = 0;
+
+            for (StatusEntry entry : newBlocks) {
+                if (displayed >= MAX_DISPLAY) {
+                    skipped++;
+                    continue;
+                }
+                sb.append("  §a+ ").append(formatPos(entry.pos)).append(" §7").append(entry.description).append("\n");
+                displayed++;
+            }
+            for (StatusEntry entry : removedBlocks) {
+                if (displayed >= MAX_DISPLAY) {
+                    skipped++;
+                    continue;
+                }
+                sb.append("  §c- ").append(formatPos(entry.pos)).append(" §7").append(entry.description).append("\n");
+                displayed++;
+            }
+            for (StatusEntry entry : modifiedBlocks) {
+                if (displayed >= MAX_DISPLAY) {
+                    skipped++;
+                    continue;
+                }
+                sb.append("  §e~ ").append(formatPos(entry.pos)).append(" §7").append(entry.description).append("\n");
+                displayed++;
+            }
+
+            if (skipped > 0) {
+                sb.append("§7...").append(skipped).append(" more\n");
+            }
+        }
+
+        if (!staged.isEmpty() && staged.size() > totalChanges) {
+            sb.append("§7(").append(staged.size() - totalChanges).append(" unchanged blocks not shown)\n");
+        }
+
         sb.append("\n§aAuto-add: §f").append(session.isAutoAdd() ? "on" : "off");
         sb.append(" §aAuto-rm: §f").append(session.isAutoRm() ? "on" : "off");
-        
+
         final String message = sb.toString();
         context.getSource().sendSuccess(() -> Component.literal(message), false);
         return 1;
