@@ -251,6 +251,26 @@ def list_repos(username: str, uuid: str, db: Session = Depends(get_database)):
     return {"repos": [{"name": repo.name, "visibility": repo.visibility} for repo in repos]}
 
 
+@app.get("/public-repos")
+def list_all_public_repos(db: Session = Depends(get_database)):
+    """List all public repositories from all users (no authentication required)"""
+    # Get all public repositories from database
+    public_repos = db.query(models.Repo).filter(models.Repo.visibility == 'public').all()
+    
+    # Get creator usernames for each repo
+    result = []
+    for repo in public_repos:
+        creator = db.query(models.User).filter(models.User.id == repo.creator_id).first()
+        if creator:
+            result.append({
+                "name": repo.name,
+                "visibility": repo.visibility,
+                "username": creator.username
+            })
+    
+    return {"repos": result}
+
+
 @app.get("/repos/{username}/{repo_name}/exists")
 def repo_exists(username: str, repo_name: str):
     """Check if a repository exists"""
