@@ -11,6 +11,7 @@ import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.sanguine.gitbuild.*;
 import com.sanguine.gitbuild.BackendApiClient.ApiResponse;
 import com.sanguine.gitbuild.BackendApiClient.BlockData;
+import com.sanguine.gitbuild.BuildInstance.CommitData;
 import com.sanguine.gitbuild.PlayerSession.BlockChange;
 import com.sanguine.gitbuild.PlayerSession.ChangeType;
 import net.minecraft.commands.CommandSourceStack;
@@ -20,6 +21,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -28,6 +30,14 @@ import java.security.MessageDigest;
 import java.util.*;
 
 public class GitCommand {
+
+    // Authentication requirement predicate - hides commands from unauthenticated players
+    private static final java.util.function.Predicate<CommandSourceStack> IS_AUTHENTICATED = source -> {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) return false;
+        PlayerSession session = SessionManager.getSession(player);
+        return session.isAuthenticated();
+    };
 
     // Suggestion providers
     private static final SuggestionProvider<CommandSourceStack> REPO_SUGGESTIONS = (context, builder) -> {
@@ -85,22 +95,22 @@ public class GitCommand {
                     )
                 )
                 // Repository management
-                .then(Commands.literal("init")
+                .then(Commands.literal("init").requires(IS_AUTHENTICATED)
                     .then(Commands.argument("name", StringArgumentType.word())
                         .executes(GitCommand::executeInit)
                     )
                 )
-                .then(Commands.literal("activate")
+                .then(Commands.literal("activate").requires(IS_AUTHENTICATED)
                     .then(Commands.argument("name", StringArgumentType.word())
                         .suggests(REPO_SUGGESTIONS)
                         .executes(GitCommand::executeActivate)
                     )
                 )
-                .then(Commands.literal("repoList")
+                .then(Commands.literal("repoList").requires(IS_AUTHENTICATED)
                     .executes(GitCommand::executeRepoList)
                 )
                 // Staging
-                .then(Commands.literal("add")
+                .then(Commands.literal("add").requires(IS_AUTHENTICATED)
                     .then(Commands.argument("from", BlockPosArgument.blockPos())
                         .executes(GitCommand::executeAddSingle)
                         .then(Commands.argument("to", BlockPosArgument.blockPos())
@@ -114,7 +124,7 @@ public class GitCommand {
                         )
                     )
                 )
-                .then(Commands.literal("rm")
+                .then(Commands.literal("rm").requires(IS_AUTHENTICATED)
                     .then(Commands.argument("from", BlockPosArgument.blockPos())
                         .executes(GitCommand::executeRmSingle)
                         .then(Commands.argument("to", BlockPosArgument.blockPos())
@@ -128,7 +138,7 @@ public class GitCommand {
                         )
                     )
                 )
-                .then(Commands.literal("unstage")
+                .then(Commands.literal("unstage").requires(IS_AUTHENTICATED)
                     .then(Commands.argument("from", BlockPosArgument.blockPos())
                         .executes(GitCommand::executeUnstageSingle)
                         .then(Commands.argument("to", BlockPosArgument.blockPos())
@@ -136,32 +146,26 @@ public class GitCommand {
                         )
                     )
                 )
-                .then(Commands.literal("autoadd")
-                    .executes(GitCommand::executeAutoAddToggle)
+                .then(Commands.literal("autoadd").requires(IS_AUTHENTICATED)
+                    .executes(GitCommand::executeAutoAddStatus)
                     .then(Commands.literal("on")
                         .executes(GitCommand::executeAutoAddOn)
                     )
                     .then(Commands.literal("off")
                         .executes(GitCommand::executeAutoAddOff)
                     )
-                    .then(Commands.literal("toggle")
-                        .executes(GitCommand::executeAutoAddToggle)
-                    )
                 )
-                .then(Commands.literal("autorm")
-                    .executes(GitCommand::executeAutoRmToggle)
+                .then(Commands.literal("autorm").requires(IS_AUTHENTICATED)
+                    .executes(GitCommand::executeAutoRmStatus)
                     .then(Commands.literal("on")
                         .executes(GitCommand::executeAutoRmOn)
                     )
                     .then(Commands.literal("off")
                         .executes(GitCommand::executeAutoRmOff)
                     )
-                    .then(Commands.literal("toggle")
-                        .executes(GitCommand::executeAutoRmToggle)
-                    )
                 )
                 // Commit
-                .then(Commands.literal("commit")
+                .then(Commands.literal("commit").requires(IS_AUTHENTICATED)
                     .then(Commands.literal("-m")
                         .then(Commands.argument("message", StringArgumentType.greedyString())
                             .executes(GitCommand::executeCommit)
@@ -171,72 +175,120 @@ public class GitCommand {
                         .executes(GitCommand::executeCommit)
                     )
                 )
-                .then(Commands.literal("status")
+                .then(Commands.literal("status").requires(IS_AUTHENTICATED)
                     .executes(GitCommand::executeStatus)
                 )
+                .then(Commands.literal("diff").requires(IS_AUTHENTICATED)
+                    .executes(GitCommand::executeDiff)
+                    .then(Commands.literal("clear")
+                        .executes(GitCommand::executeDiffClear)
+                    )
+                )
                 // History
-                .then(Commands.literal("log")
+                .then(Commands.literal("log").requires(IS_AUTHENTICATED)
                     .executes(GitCommand::executeLog)
                 )
-                .then(Commands.literal("commitList")
+                .then(Commands.literal("commitList").requires(IS_AUTHENTICATED)
                     .executes(GitCommand::executeLog)
                 )
-                .then(Commands.literal("revert")
+                .then(Commands.literal("revert").requires(IS_AUTHENTICATED)
                     .executes(GitCommand::executeRevertHead)
                     .then(Commands.argument("hash", StringArgumentType.word())
                         .suggests(COMMIT_SUGGESTIONS)
                         .executes(GitCommand::executeRevert)
                     )
                 )
-                .then(Commands.literal("reset")
+                .then(Commands.literal("reset").requires(IS_AUTHENTICATED)
                     .executes(GitCommand::executeResetHead)
                     .then(Commands.argument("hash", StringArgumentType.word())
                         .suggests(COMMIT_SUGGESTIONS)
                         .executes(GitCommand::executeReset)
                     )
                 )
-                // Remote
-                .then(Commands.literal("remote")
-                    .then(Commands.literal("add")
-                        .then(Commands.argument("name", StringArgumentType.word())
-                            .then(Commands.argument("url", StringArgumentType.greedyString())
-                                .executes(GitCommand::executeRemoteAdd)
-                            )
-                        )
-                    )
-                    .then(Commands.literal("remove")
-                        .then(Commands.argument("name", StringArgumentType.word())
-                            .executes(GitCommand::executeRemoteRemove)
-                        )
-                    )
-                    .then(Commands.literal("list")
-                        .executes(GitCommand::executeRemoteList)
-                    )
+                .then(Commands.literal("push").requires(IS_AUTHENTICATED)
+                    .executes(GitCommand::executePush)
                 )
-                .then(Commands.literal("push")
-                    .executes(GitCommand::executePushDefault)
-                    .then(Commands.argument("remote", StringArgumentType.word())
-                        .executes(GitCommand::executePush)
-                    )
-                )
-                .then(Commands.literal("pull")
-                    .executes(GitCommand::executePullDefault)
-                    .then(Commands.argument("remote", StringArgumentType.word())
+                .then(Commands.literal("pull").requires(IS_AUTHENTICATED)
+                    .then(Commands.argument("source", StringArgumentType.greedyString())
                         .executes(GitCommand::executePull)
                     )
                 )
-                .then(Commands.literal("fetch")
-                    .executes(GitCommand::executeFetchDefault)
-                    .then(Commands.argument("remote", StringArgumentType.word())
-                        .executes(GitCommand::executeFetch)
+                .then(Commands.literal("clone").requires(IS_AUTHENTICATED)
+                    // /git clone - Start preview with active repo at player position
+                    .executes(GitCommand::executeClonePreview)
+                    // /git clone anchor - Set anchor at target block
+                    .then(Commands.literal("anchor")
+                        .executes(GitCommand::executeCloneAnchor)
                     )
-                )
-                .then(Commands.literal("clone")
-                    .then(Commands.argument("name", StringArgumentType.word())
-                        .then(Commands.argument("source", StringArgumentType.greedyString())
-                            .executes(GitCommand::executeClone)
+                    // /git clone rotate <angle>
+                    .then(Commands.literal("rotate")
+                        .then(Commands.argument("angle", StringArgumentType.word())
+                            .executes(GitCommand::executeCloneRotate)
                         )
                     )
+                    // /git clone confirm - Paste blocks (OP only)
+                    .then(Commands.literal("confirm")
+                        .executes(GitCommand::executeCloneConfirm)
+                    )
+                    // /git clone cancel - Clear preview
+                    .then(Commands.literal("cancel")
+                        .executes(GitCommand::executeCloneCancel)
+                    )
+                    // Legacy: /git clone <name> <source> - Immediate clone
+                    .then(Commands.argument("name", StringArgumentType.word())
+                        .then(Commands.argument("source", StringArgumentType.greedyString())
+                            .executes(GitCommand::executeCloneLegacy)
+                        )
+                    )
+                )
+                // Instance management
+                .then(Commands.literal("instance").requires(IS_AUTHENTICATED)
+                    // /git instance list - Show instances in current dimension
+                    .then(Commands.literal("list")
+                        .executes(GitCommand::executeInstanceList)
+                    )
+                    // /git instance highlight [id|nearest] - Show beacon beam at anchor
+                    .then(Commands.literal("highlight")
+                        .executes(GitCommand::executeInstanceHighlightNearest)
+                        .then(Commands.argument("id", StringArgumentType.word())
+                            .executes(GitCommand::executeInstanceHighlight)
+                        )
+                    )
+                    // /git instance select <id> - Switch to instance
+                    .then(Commands.literal("select")
+                        .then(Commands.argument("id", StringArgumentType.word())
+                            .executes(GitCommand::executeInstanceSelect)
+                        )
+                    )
+                    // /git instance new [name] - Force new instance
+                    .then(Commands.literal("new")
+                        .executes(GitCommand::executeInstanceNew)
+                        .then(Commands.argument("name", StringArgumentType.greedyString())
+                            .executes(GitCommand::executeInstanceNewNamed)
+                        )
+                    )
+                    // /git instance info - Current instance details
+                    .then(Commands.literal("info")
+                        .executes(GitCommand::executeInstanceInfo)
+                    )
+                    // /git instance clearhighlight - Remove beacon beams
+                    .then(Commands.literal("clearhighlight")
+                        .executes(GitCommand::executeInstanceClearHighlight)
+                    )
+                    // /git instance autodetect - Control auto-detection
+                    .then(Commands.literal("autodetect")
+                        .executes(GitCommand::executeInstanceAutoDetectStatus)
+                        .then(Commands.literal("on")
+                            .executes(GitCommand::executeInstanceAutoDetectOn)
+                        )
+                        .then(Commands.literal("off")
+                            .executes(GitCommand::executeInstanceAutoDetectOff)
+                        )
+                    )
+                )
+                // Deactivate current repo (pause tracking)
+                .then(Commands.literal("deactivate").requires(IS_AUTHENTICATED)
+                    .executes(GitCommand::executeDeactivate)
                 )
         );
     }
@@ -284,6 +336,20 @@ public class GitCommand {
         }
     }
 
+    private static void updateInstanceContext(ServerPlayer player, PlayerSession session, BlockPos pos) {
+        // Get world ID from the level's server world name
+        String worldId = "world";
+        if (player.level().getServer() != null) {
+            worldId = player.level().getServer().getWorldData().getLevelName();
+        }
+
+        // Get dimension ID
+        String dimensionId = player.level().dimension().toString();
+
+        // Update the instance context
+        session.updateInstanceContext(worldId, dimensionId, pos);
+    }
+
     // Authentication
     private static int executeAuthNoPassword(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         ServerPlayer player = getPlayer(context);
@@ -299,11 +365,13 @@ public class GitCommand {
             String uuid = data.get("uuid").getAsString();
             String mcUsername = data.get("minecraft_username").getAsString();
             session.setAuthenticated(username, uuid);
-            context.getSource().sendSuccess(() -> 
+            context.getSource().sendSuccess(() ->
                 Component.literal("§aAuthenticated as " + username + " (MC: " + mcUsername + ")"), false);
+            // Resync command tree to show authenticated commands
+            ((net.minecraft.server.level.ServerLevel)player.level()).getServer().getCommands().sendCommands(player);
             return 1;
         }
-        
+
         context.getSource().sendFailure(Component.literal("§cAuthentication failed. Password required."));
         return 0;
     }
@@ -325,11 +393,13 @@ public class GitCommand {
             String uuid = data.get("uuid").getAsString();
             String mcUsername = data.get("minecraft_username").getAsString();
             session.setAuthenticated(username, uuid);
-            context.getSource().sendSuccess(() -> 
+            context.getSource().sendSuccess(() ->
                 Component.literal("§aAuthenticated as " + username + " (MC: " + mcUsername + ")"), false);
+            // Resync command tree to show authenticated commands
+            ((net.minecraft.server.level.ServerLevel)player.level()).getServer().getCommands().sendCommands(player);
             return 1;
         }
-        
+
         context.getSource().sendFailure(Component.literal("§cAuthentication failed: " + response.message));
         return 0;
     }
@@ -496,6 +566,9 @@ public class GitCommand {
         
         checkRepoActive(session, context.getSource());
         
+        // Update instance context for this position
+        updateInstanceContext(player, session, pos);
+        
         BlockState currentState = player.level().getBlockState(pos);
         String blockName = BuiltInRegistries.BLOCK.getKey(currentState.getBlock()).toString();
         
@@ -511,6 +584,9 @@ public class GitCommand {
         BlockPos pos = BlockPosArgument.getBlockPos(context, "from");
         
         checkRepoActive(session, context.getSource());
+        
+        // Update instance context for this position
+        updateInstanceContext(player, session, pos);
         
         BlockState currentState = player.level().getBlockState(pos);
         BlockState airState = net.minecraft.world.level.block.Blocks.AIR.defaultBlockState();
@@ -530,6 +606,9 @@ public class GitCommand {
         ServerPlayer player = getPlayer(context);
         PlayerSession session = SessionManager.getSession(player);
         BlockPos pos = BlockPosArgument.getBlockPos(context, "from");
+        
+        // Update instance context for this position
+        updateInstanceContext(player, session, pos);
         
         session.unstageBlock(pos);
         context.getSource().sendSuccess(() -> 
@@ -557,6 +636,9 @@ public class GitCommand {
         BlockPos to = BlockPosArgument.getBlockPos(context, "to");
         
         checkRepoActive(session, context.getSource());
+        
+        // Update instance context using the 'from' position as anchor
+        updateInstanceContext(player, session, from);
         
         int count = 0;
         int minX = Math.min(from.getX(), to.getX());
@@ -610,6 +692,9 @@ public class GitCommand {
         
         checkRepoActive(session, context.getSource());
         
+        // Update instance context using the 'from' position as anchor
+        updateInstanceContext(player, session, from);
+        
         int count = 0;
         int minX = Math.min(from.getX(), to.getX());
         int maxX = Math.max(from.getX(), to.getX());
@@ -651,6 +736,9 @@ public class GitCommand {
         BlockPos from = BlockPosArgument.getBlockPos(context, "from");
         BlockPos to = BlockPosArgument.getBlockPos(context, "to");
         
+        // Update instance context using the 'from' position as anchor
+        updateInstanceContext(player, session, from);
+        
         int minX = Math.min(from.getX(), to.getX());
         int maxX = Math.max(from.getX(), to.getX());
         int minY = Math.min(from.getY(), to.getY());
@@ -676,13 +764,13 @@ public class GitCommand {
     }
 
     // Auto tracking
-    private static int executeAutoAddToggle(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+    private static int executeAutoAddStatus(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         ServerPlayer player = getPlayer(context);
         PlayerSession session = SessionManager.getSession(player);
-        session.toggleAutoAdd();
         boolean enabled = session.isAutoAdd();
-        context.getSource().sendSuccess(() -> 
-            Component.literal("§aAuto-add " + (enabled ? "enabled" : "disabled")), false);
+        context.getSource().sendSuccess(() ->
+            Component.literal("§7Auto-add is currently " + (enabled ? "§aON" : "§cOFF") +
+                "§7. Use §6/git autoadd on§7 or §6/git autoadd off§7 to change."), false);
         return 1;
     }
 
@@ -698,17 +786,17 @@ public class GitCommand {
         ServerPlayer player = getPlayer(context);
         PlayerSession session = SessionManager.getSession(player);
         session.setAutoAdd(false);
-        context.getSource().sendSuccess(() -> Component.literal("§aAuto-add disabled"), false);
+        context.getSource().sendSuccess(() -> Component.literal("§cAuto-add disabled"), false);
         return 1;
     }
 
-    private static int executeAutoRmToggle(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+    private static int executeAutoRmStatus(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         ServerPlayer player = getPlayer(context);
         PlayerSession session = SessionManager.getSession(player);
-        session.toggleAutoRm();
         boolean enabled = session.isAutoRm();
-        context.getSource().sendSuccess(() -> 
-            Component.literal("§aAuto-rm " + (enabled ? "enabled" : "disabled")), false);
+        context.getSource().sendSuccess(() ->
+            Component.literal("§7Auto-rm is currently " + (enabled ? "§aON" : "§cOFF") +
+                "§7. Use §6/git autorm on§7 or §6/git autorm off§7 to change."), false);
         return 1;
     }
 
@@ -724,7 +812,7 @@ public class GitCommand {
         ServerPlayer player = getPlayer(context);
         PlayerSession session = SessionManager.getSession(player);
         session.setAutoRm(false);
-        context.getSource().sendSuccess(() -> Component.literal("§aAuto-rm disabled"), false);
+        context.getSource().sendSuccess(() -> Component.literal("§cAuto-rm disabled"), false);
         return 1;
     }
 
@@ -734,7 +822,6 @@ public class GitCommand {
         PlayerSession session = SessionManager.getSession(player);
         String message = StringArgumentType.getString(context, "message");
 
-        checkServerOnline(context.getSource());
         checkAuthenticated(session, context.getSource());
         checkRepoActive(session, context.getSource());
 
@@ -742,50 +829,86 @@ public class GitCommand {
 
         // Get previous commit blocks (if any) for full snapshot mode
         List<BlockData> allBlocks = new ArrayList<>();
-        ApiResponse logResponse = BackendApiClient.getLog(session.getUsername(), session.getCurrentRepo());
 
-        if (logResponse.success && logResponse.data != null) {
-            JsonArray commits = logResponse.data.getAsJsonArray();
-            if (commits.size() > 0) {
-                String headHash = commits.get(0).getAsJsonObject().get("commit_hash").getAsString();
-                ApiResponse blocksResponse = BackendApiClient.getCommitBlocks(
-                    session.getUsername(), session.getCurrentRepo(), headHash);
+        // Load pending commits to build base snapshot
+        List<CommitData> pendingCommits = session.getPendingCommitsForCurrent();
 
-                if (blocksResponse.success && blocksResponse.data != null) {
-                    // Add previous blocks (excluding ones we're replacing)
-                    JsonArray prevBlocks = blocksResponse.data.getAsJsonArray();
-                    Set<String> stagedPositions = new HashSet<>();
+        // Check server online for remote commits, but don't fail if offline
+        if (BackendApiClient.isServerOnline()) {
+            ApiResponse logResponse = BackendApiClient.getLog(session.getUsername(), session.getCurrentRepo());
 
-                    // First, collect positions of staged changes
-                    for (Map.Entry<BlockPos, BlockChange> entry : staged.entrySet()) {
-                        BlockPos pos = entry.getKey();
-                        stagedPositions.add(pos.getX() + "," + pos.getY() + "," + pos.getZ());
-                    }
+            if (logResponse.success && logResponse.data != null) {
+                JsonArray commits = logResponse.data.getAsJsonArray();
+                if (commits.size() > 0) {
+                    String headHash = commits.get(0).getAsJsonObject().get("commit_hash").getAsString();
+                    ApiResponse blocksResponse = BackendApiClient.getCommitBlocks(
+                        session.getUsername(), session.getCurrentRepo(), headHash);
 
-                    // Add previous blocks that aren't being replaced
-                    for (JsonElement element : prevBlocks) {
-                        JsonObject block = element.getAsJsonObject();
-                        String blockName = block.get("block_name").getAsString();
+                    if (blocksResponse.success && blocksResponse.data != null) {
+                        // Add previous blocks (excluding ones we're replacing)
+                        JsonArray prevBlocks = blocksResponse.data.getAsJsonArray();
+                        Set<String> stagedPositions = new HashSet<>();
 
-                        // Skip AIR blocks
-                        if (blockName.equals("minecraft:air") || blockName.equals("air")) {
-                            continue;
+                        // First, collect positions of staged changes
+                        for (Map.Entry<BlockPos, BlockChange> entry : staged.entrySet()) {
+                            BlockPos pos = entry.getKey();
+                            stagedPositions.add(pos.getX() + "," + pos.getY() + "," + pos.getZ());
                         }
 
-                        String posKey = block.get("x").getAsInt() + "," +
-                                        block.get("y").getAsInt() + "," +
-                                        block.get("z").getAsInt();
+                        // Add previous blocks that aren't being replaced
+                        for (JsonElement element : prevBlocks) {
+                            JsonObject block = element.getAsJsonObject();
+                            String blockName = block.get("block_name").getAsString();
 
-                        if (!stagedPositions.contains(posKey)) {
-                            allBlocks.add(new BlockData(
-                                block.get("x").getAsInt(),
-                                block.get("y").getAsInt(),
-                                block.get("z").getAsInt(),
-                                blockName,
-                                block.get("block_state").getAsString()
-                            ));
+                            // Skip AIR blocks
+                            if (blockName.equals("minecraft:air") || blockName.equals("air")) {
+                                continue;
+                            }
+
+                            String posKey = block.get("x").getAsInt() + "," +
+                                            block.get("y").getAsInt() + "," +
+                                            block.get("z").getAsInt();
+
+                            if (!stagedPositions.contains(posKey)) {
+                                allBlocks.add(new BlockData(
+                                    block.get("x").getAsInt(),
+                                    block.get("y").getAsInt(),
+                                    block.get("z").getAsInt(),
+                                    blockName,
+                                    block.get("block_state").getAsString()
+                                ));
+                            }
                         }
                     }
+                }
+            }
+        }
+
+        // Apply pending commits on top (if any)
+        if (!pendingCommits.isEmpty()) {
+            // Use the most recent pending commit as base
+            CommitData lastPending = pendingCommits.get(pendingCommits.size() - 1);
+            Set<String> existingPositions = new HashSet<>();
+
+            // Track which positions are already in our snapshot
+            for (BlockData block : allBlocks) {
+                existingPositions.add(block.x + "," + block.y + "," + block.z);
+            }
+
+            // Add pending commit blocks, replacing existing ones
+            for (BlockData block : lastPending.toAbsoluteBlocks(session.getCurrentInstance().getAnchorPos())) {
+                String posKey = block.x + "," + block.y + "," + block.z;
+                if (block.block_name.equals("minecraft:air") || block.block_name.equals("air")) {
+                    // Remove if it exists
+                    allBlocks.removeIf(b -> (b.x + "," + b.y + "," + b.z).equals(posKey));
+                    existingPositions.remove(posKey);
+                } else {
+                    if (existingPositions.contains(posKey)) {
+                        // Replace existing
+                        allBlocks.removeIf(b -> (b.x + "," + b.y + "," + b.z).equals(posKey));
+                    }
+                    allBlocks.add(block);
+                    existingPositions.add(posKey);
                 }
             }
         }
@@ -803,7 +926,9 @@ public class GitCommand {
             }
 
             String blockState = change.newState.toString();
-            allBlocks.add(new BlockData(pos.getX(), pos.getY(), pos.getZ(), blockName, blockState));
+            // Convert relative position to absolute for storage in commit
+            BlockPos absPos = session.getCurrentInstance().toAbsolute(pos);
+            allBlocks.add(new BlockData(absPos.getX(), absPos.getY(), absPos.getZ(), blockName, blockState));
             commitData.append(pos.toString()).append(blockName);
         }
 
@@ -817,26 +942,24 @@ public class GitCommand {
         String commitHash = generateHash(session.getUsername() + session.getCurrentRepo() + message + commitData.toString() + System.currentTimeMillis());
         String commitName = "commit-" + commitHash.substring(0, 8);
 
-        // Send full snapshot to backend
-        ApiResponse response = BackendApiClient.createCommit(
-            session.getUsername(),
-            session.getCurrentRepo(),
-            session.getUuid(),
-            commitName,
+        // Save commit locally (do not send to backend yet)
+        // Convert to relative blocks for instance storage
+        CommitData pendingCommit = CommitData.fromAbsolute(
             commitHash,
+            commitName,
             message,
-            allBlocks  // Full snapshot, not just staged
+            System.currentTimeMillis(),
+            allBlocks,
+            session.getCurrentInstance().getAnchorPos()
         );
+        session.savePendingCommitToCurrent(pendingCommit);
+        session.saveInstances();
 
-        if (response.success) {
-            session.clearStaging();
-            context.getSource().sendSuccess(() ->
-                Component.literal("§aCommitted: " + message + " §7(" + commitHash.substring(0, 8) + ")"), false);
-            return 1;
-        }
-
-        context.getSource().sendFailure(Component.literal("§cCommit failed: " + response.message));
-        return 0;
+        session.clearStaging();
+        int pendingCount = session.getPendingCommitCount();
+        context.getSource().sendSuccess(() ->
+            Component.literal("§aCommitted locally: " + message + " §7(" + commitHash.substring(0, 8) + ") §8[§e" + pendingCount + " pending§8]"), false);
+        return 1;
     }
 
     // Helper class for status entries
@@ -984,6 +1107,14 @@ public class GitCommand {
         }
         sb.append("\n");
 
+        // Show current instance info
+        BuildInstance currentInstance = session.getCurrentInstance();
+        if (currentInstance != null) {
+            BlockPos anchor = currentInstance.getAnchorPos();
+            sb.append("§aInstance: §f").append(currentInstance.getInstanceId()).append("\n");
+            sb.append("§7  Anchor: ").append(formatPos(anchor)).append("\n");
+        }
+
         if (totalChanges == 0) {
             sb.append("§aNo changes\n");
         } else {
@@ -1023,8 +1154,10 @@ public class GitCommand {
             }
         }
 
-        if (!staged.isEmpty() && staged.size() > totalChanges) {
-            sb.append("§7(").append(staged.size() - totalChanges).append(" unchanged blocks not shown)\n");
+        // Show pending commits info
+        int pendingCount = session.getPendingCommitCount();
+        if (pendingCount > 0) {
+            sb.append("\n§ePending commits: §f").append(pendingCount).append(" §8(run /git push to upload)");
         }
 
         sb.append("\n§aAuto-add: §f").append(session.isAutoAdd() ? "on" : "off");
@@ -1032,6 +1165,191 @@ public class GitCommand {
 
         final String message = sb.toString();
         context.getSource().sendSuccess(() -> Component.literal(message), false);
+        return 1;
+    }
+
+    // Diff visualization - compares HEAD with HEAD~1 (last two commits)
+    private static int executeDiff(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = getPlayer(context);
+        PlayerSession session = SessionManager.getSession(player);
+
+        checkRepoActive(session, context.getSource());
+        checkServerOnline(context.getSource());
+
+        // Clear any existing diff ghosts
+        GhostBlockManager.clearDiffGhosts(player);
+
+        // Get commit log
+        ApiResponse logResponse = BackendApiClient.getLog(session.getUsername(), session.getCurrentRepo());
+        if (!logResponse.success || logResponse.data == null) {
+            context.getSource().sendFailure(Component.literal("§cFailed to get commit log"));
+            return 0;
+        }
+
+        JsonArray commits = logResponse.data.getAsJsonArray();
+        if (commits.size() < 2) {
+            context.getSource().sendFailure(Component.literal("§cNeed at least 2 commits to diff. Only found " + commits.size()));
+            return 0;
+        }
+
+        // Get HEAD (most recent) and HEAD~1 (previous) commit hashes
+        String headHash = commits.get(0).getAsJsonObject().get("commit_hash").getAsString();
+        String prevHash = commits.get(1).getAsJsonObject().get("commit_hash").getAsString();
+        String headMsg = commits.get(0).getAsJsonObject().has("message")
+            ? commits.get(0).getAsJsonObject().get("message").getAsString()
+            : "HEAD";
+        String prevMsg = commits.get(1).getAsJsonObject().has("message")
+            ? commits.get(1).getAsJsonObject().get("message").getAsString()
+            : "HEAD~1";
+
+        // Fetch HEAD blocks
+        ApiResponse headResponse = BackendApiClient.getCommitBlocks(
+            session.getUsername(), session.getCurrentRepo(), headHash);
+        if (!headResponse.success || headResponse.data == null) {
+            context.getSource().sendFailure(Component.literal("§cFailed to get HEAD commit blocks"));
+            return 0;
+        }
+
+        // Fetch HEAD~1 blocks
+        ApiResponse prevResponse = BackendApiClient.getCommitBlocks(
+            session.getUsername(), session.getCurrentRepo(), prevHash);
+        if (!prevResponse.success || prevResponse.data == null) {
+            context.getSource().sendFailure(Component.literal("§cFailed to get previous commit blocks"));
+            return 0;
+        }
+
+        JsonArray headBlocks = headResponse.data.getAsJsonArray();
+        JsonArray prevBlocks = prevResponse.data.getAsJsonArray();
+
+        // Build map of HEAD~1 (previous) blocks
+        Map<String, HeadBlock> prevBlockMap = new HashMap<>();
+        for (JsonElement element : prevBlocks) {
+            JsonObject block = element.getAsJsonObject();
+            String posKey = block.get("x").getAsInt() + "," +
+                          block.get("y").getAsInt() + "," +
+                          block.get("z").getAsInt();
+            prevBlockMap.put(posKey, new HeadBlock(
+                block.get("block_name").getAsString(),
+                block.has("block_state") ? block.get("block_state").getAsString() : ""
+            ));
+        }
+
+        // Get the current instance for coordinate conversion
+        BuildInstance currentInstance = session.getCurrentInstance();
+
+        int newCount = 0;
+        int deletedCount = 0;
+        int modifiedCount = 0;
+
+        // Process HEAD blocks - compare against HEAD~1
+        for (JsonElement element : headBlocks) {
+            JsonObject block = element.getAsJsonObject();
+            int x = block.get("x").getAsInt();
+            int y = block.get("y").getAsInt();
+            int z = block.get("z").getAsInt();
+            String posKey = x + "," + y + "," + z;
+            String blockName = block.get("block_name").getAsString();
+            String blockState = block.has("block_state") ? block.get("block_state").getAsString() : "";
+
+            BlockPos relPos = new BlockPos(x, y, z);
+            BlockPos absPos = (currentInstance != null) ? currentInstance.toAbsolute(relPos) : relPos;
+            BlockState headState = parseBlockState(blockName, blockState);
+
+            if (prevBlockMap.containsKey(posKey)) {
+                HeadBlock prevBlock = prevBlockMap.get(posKey);
+                if (!blockName.equals(prevBlock.blockName)) {
+                    // Modified - different block type
+                    if (headState != null) {
+                        GhostBlockManager.addDiffGhost(player,
+                            new GhostBlockManager.DiffGhost(absPos, headState, GhostBlockManager.DiffType.MODIFIED));
+                        modifiedCount++;
+                    }
+                } else if (!blockState.equals(prevBlock.blockState)) {
+                    // Same block type, different state
+                    if (headState != null) {
+                        GhostBlockManager.addDiffGhost(player,
+                            new GhostBlockManager.DiffGhost(absPos, headState, GhostBlockManager.DiffType.MODIFIED));
+                        modifiedCount++;
+                    }
+                }
+                // If identical, no diff needed
+            } else {
+                // New block in HEAD that wasn't in HEAD~1
+                if (headState != null && !blockName.equals("minecraft:air")) {
+                    GhostBlockManager.addDiffGhost(player,
+                        new GhostBlockManager.DiffGhost(absPos, headState, GhostBlockManager.DiffType.NEW));
+                    newCount++;
+                }
+            }
+        }
+
+        // Find blocks that were in HEAD~1 but not in HEAD (deleted)
+        for (JsonElement element : prevBlocks) {
+            JsonObject block = element.getAsJsonObject();
+            int x = block.get("x").getAsInt();
+            int y = block.get("y").getAsInt();
+            int z = block.get("z").getAsInt();
+
+            if (!block.has("block_name")) continue;
+            String blockName = block.get("block_name").getAsString();
+
+            // Skip air blocks
+            if (blockName.equals("minecraft:air") || blockName.equals("air")) continue;
+
+            // Check if this position exists in HEAD
+            boolean existsInHead = false;
+            for (JsonElement headElement : headBlocks) {
+                JsonObject headBlock = headElement.getAsJsonObject();
+                int hx = headBlock.get("x").getAsInt();
+                int hy = headBlock.get("y").getAsInt();
+                int hz = headBlock.get("z").getAsInt();
+                if (hx == x && hy == y && hz == z) {
+                    existsInHead = true;
+                    break;
+                }
+            }
+
+            if (!existsInHead) {
+                // Block was deleted - show red ghost
+                String blockState = block.has("block_state") ? block.get("block_state").getAsString() : "";
+                BlockPos relPos = new BlockPos(x, y, z);
+                BlockPos absPos = (currentInstance != null) ? currentInstance.toAbsolute(relPos) : relPos;
+                BlockState prevState = parseBlockState(blockName, blockState);
+                if (prevState != null) {
+                    GhostBlockManager.addDiffGhost(player,
+                        new GhostBlockManager.DiffGhost(absPos, prevState, GhostBlockManager.DiffType.DELETED));
+                    deletedCount++;
+                }
+            }
+        }
+
+        int total = newCount + deletedCount + modifiedCount;
+        if (total == 0) {
+            context.getSource().sendSuccess(() ->
+                Component.literal("§aNo differences between commits\n§7" +
+                    headHash.substring(0, 8) + " " + headMsg + "\n§7and\n§7" +
+                    prevHash.substring(0, 8) + " " + prevMsg), false);
+        } else {
+            final int fNew = newCount;
+            final int fDel = deletedCount;
+            final int fMod = modifiedCount;
+            final String fHead = headHash.substring(0, 8);
+            final String fPrev = prevHash.substring(0, 8);
+            context.getSource().sendSuccess(() ->
+                Component.literal("§aDiff: §f" + fHead + " §7vs §f" + fPrev +
+                    "\n§a" + fNew + " new§7, §c" + fDel + " deleted§7, §e" + fMod + " modified" +
+                    "\n§7Green = added in HEAD, Red = removed from HEAD~1, Yellow = changed" +
+                    "\n§7Use /git diff clear to remove"), false);
+        }
+
+        return 1;
+    }
+
+    private static int executeDiffClear(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = getPlayer(context);
+
+        GhostBlockManager.clearDiffGhosts(player);
+        context.getSource().sendSuccess(() -> Component.literal("§aDiff visualization cleared"), false);
         return 1;
     }
 
@@ -1183,129 +1501,69 @@ public class GitCommand {
         return 0;
     }
 
-    // Remote
-    private static int executeRemoteAdd(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-        ServerPlayer player = getPlayer(context);
-        PlayerSession session = SessionManager.getSession(player);
-        String name = StringArgumentType.getString(context, "name");
-        String url = StringArgumentType.getString(context, "url");
-        
-        // Parse URL (format: username/repo or full URL)
-        String[] parts = url.split("/");
-        if (parts.length >= 2) {
-            String remoteUser = parts[parts.length - 2];
-            String remoteRepo = parts[parts.length - 1].replace(".git", "");
-            session.addRemote(name, remoteUser + "/" + remoteRepo, "");
-            context.getSource().sendSuccess(() -> 
-                Component.literal("§aAdded remote '" + name + "' -> " + remoteUser + "/" + remoteRepo), false);
-            return 1;
-        }
-        
-        context.getSource().sendFailure(Component.literal("§cInvalid remote URL format. Use: username/repo"));
-        return 0;
-    }
-
-    private static int executeRemoteRemove(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-        ServerPlayer player = getPlayer(context);
-        PlayerSession session = SessionManager.getSession(player);
-        String name = StringArgumentType.getString(context, "name");
-        
-        session.removeRemote(name);
-        context.getSource().sendSuccess(() -> Component.literal("§aRemoved remote '" + name + "'"), false);
-        return 1;
-    }
-
-    private static int executeRemoteList(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-        ServerPlayer player = getPlayer(context);
-        PlayerSession session = SessionManager.getSession(player);
-        
-        Map<String, PlayerSession.RemoteCredentials> remotes = session.getAllRemotes();
-        StringBuilder sb = new StringBuilder("§aRemotes:\n");
-        for (Map.Entry<String, PlayerSession.RemoteCredentials> entry : remotes.entrySet()) {
-            sb.append("  §7").append(entry.getKey()).append(" -> §f").append(entry.getValue().username).append("\n");
-        }
-        if (remotes.isEmpty()) {
-            sb.append("  §7No remotes configured");
-        }
-        
-        final String message = sb.toString();
-        context.getSource().sendSuccess(() -> Component.literal(message), false);
-        return 1;
-    }
-
-    private static int executePushDefault(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-        return executePushInternal(context, "origin");
-    }
-
     private static int executePush(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-        String remote = StringArgumentType.getString(context, "remote");
-        return executePushInternal(context, remote);
-    }
-
-    private static int executePushInternal(CommandContext<CommandSourceStack> context, String remoteName) throws CommandSyntaxException {
         ServerPlayer player = getPlayer(context);
         PlayerSession session = SessionManager.getSession(player);
-        
+
         checkAuthenticated(session, context.getSource());
         checkRepoActive(session, context.getSource());
         checkServerOnline(context.getSource());
-        
-        PlayerSession.RemoteCredentials remote = session.getRemote(remoteName);
-        if (remote == null) {
-            context.getSource().sendFailure(Component.literal("§cRemote '" + remoteName + "' not found"));
+
+        // Get pending commits and send them to backend
+        List<CommitData> pendingCommits = session.getPendingCommitsForCurrent();
+
+        if (pendingCommits.isEmpty()) {
+            context.getSource().sendFailure(Component.literal("§cNothing to push - no pending commits. Use /git commit first."));
             return 0;
         }
-        
-        String[] parts = remote.username.split("/");
-        if (parts.length != 2) {
-            context.getSource().sendFailure(Component.literal("§cInvalid remote format"));
-            return 0;
+
+        BuildInstance currentInstance = session.getCurrentInstance();
+
+        // Send all pending commits to backend
+        int pushedCount = 0;
+        for (CommitData commit : pendingCommits) {
+            ApiResponse response = BackendApiClient.createCommit(
+                session.getUsername(),
+                session.getCurrentRepo(),
+                session.getUuid(),
+                commit.commitName,
+                commit.commitHash,
+                commit.message,
+                commit.toAbsoluteBlocks(currentInstance.getAnchorPos())
+            );
+
+            if (!response.success) {
+                context.getSource().sendFailure(Component.literal(
+                    "§cFailed to push commit " + commit.commitName + ": " + response.message));
+                return 0;
+            }
+            pushedCount++;
         }
-        
-        ApiResponse response = BackendApiClient.push(
-            session.getUsername(), 
-            session.getCurrentRepo(), 
-            session.getUuid(),
-            parts[0], 
-            parts[1]
-        );
-        
-        if (response.success) {
-            context.getSource().sendSuccess(() -> 
-                Component.literal("§aPushed to " + remoteName), false);
+
+        if (pushedCount > 0) {
+            session.clearPendingCommitsForCurrent();
+            final int finalPushedCount = pushedCount;
+            context.getSource().sendSuccess(() ->
+                Component.literal("§aPushed " + finalPushedCount + " commit" + (finalPushedCount > 1 ? "s" : "") + " to server"), false);
             return 1;
         }
-        
-        context.getSource().sendFailure(Component.literal("§cPush failed: " + response.message));
-        return 0;
-    }
 
-    private static int executePullDefault(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-        return executePullInternal(context, "origin");
+        return 0;
     }
 
     private static int executePull(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-        String remote = StringArgumentType.getString(context, "remote");
-        return executePullInternal(context, remote);
-    }
-
-    private static int executePullInternal(CommandContext<CommandSourceStack> context, String remoteName) throws CommandSyntaxException {
         ServerPlayer player = getPlayer(context);
         PlayerSession session = SessionManager.getSession(player);
+        String source = StringArgumentType.getString(context, "source");
         
         checkAuthenticated(session, context.getSource());
         checkRepoActive(session, context.getSource());
         checkServerOnline(context.getSource());
         
-        PlayerSession.RemoteCredentials remote = session.getRemote(remoteName);
-        if (remote == null) {
-            context.getSource().sendFailure(Component.literal("§cRemote '" + remoteName + "' not found"));
-            return 0;
-        }
-        
-        String[] parts = remote.username.split("/");
+        // Parse source (format: username/repo)
+        String[] parts = source.split("/");
         if (parts.length != 2) {
-            context.getSource().sendFailure(Component.literal("§cInvalid remote format"));
+            context.getSource().sendFailure(Component.literal("§cInvalid source format. Use: username/repo"));
             return 0;
         }
         
@@ -1322,7 +1580,7 @@ public class GitCommand {
             int added = data.has("commits_added") ? data.get("commits_added").getAsInt() : 0;
             final int finalAdded = added;
             context.getSource().sendSuccess(() -> 
-                Component.literal("§aPulled from " + remoteName + " (" + finalAdded + " commits)"), false);
+                Component.literal("§aPulled from " + source + " (" + finalAdded + " commits)"), false);
             return 1;
         }
         
@@ -1330,92 +1588,806 @@ public class GitCommand {
         return 0;
     }
 
-    private static int executeFetchDefault(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-        return executeFetchInternal(context, "origin");
-    }
-
-    private static int executeFetch(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-        String remote = StringArgumentType.getString(context, "remote");
-        return executeFetchInternal(context, remote);
-    }
-
-    private static int executeFetchInternal(CommandContext<CommandSourceStack> context, String remoteName) throws CommandSyntaxException {
-        ServerPlayer player = getPlayer(context);
-        PlayerSession session = SessionManager.getSession(player);
-        
-        checkAuthenticated(session, context.getSource());
-        checkRepoActive(session, context.getSource());
-        checkServerOnline(context.getSource());
-        
-        PlayerSession.RemoteCredentials remote = session.getRemote(remoteName);
-        if (remote == null) {
-            context.getSource().sendFailure(Component.literal("§cRemote '" + remoteName + "' not found"));
-            return 0;
-        }
-        
-        String[] parts = remote.username.split("/");
-        if (parts.length != 2) {
-            context.getSource().sendFailure(Component.literal("§cInvalid remote format"));
-            return 0;
-        }
-        
-        ApiResponse response = BackendApiClient.fetch(
-            session.getUsername(), 
-            session.getCurrentRepo(), 
-            session.getUuid(),
-            parts[0], 
-            parts[1]
-        );
-        
-        if (response.success) {
-            context.getSource().sendSuccess(() -> 
-                Component.literal("§aFetched from " + remoteName), false);
-            return 1;
-        }
-        
-        context.getSource().sendFailure(Component.literal("§cFetch failed: " + response.message));
-        return 0;
-    }
-
-    private static int executeClone(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+    // Legacy clone - immediate clone without preview
+    private static int executeCloneLegacy(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         ServerPlayer player = getPlayer(context);
         PlayerSession session = SessionManager.getSession(player);
         String newRepoName = StringArgumentType.getString(context, "name");
         String source = StringArgumentType.getString(context, "source");
-        
+
         checkAuthenticated(session, context.getSource());
         checkServerOnline(context.getSource());
-        
+
         // Parse source (format: username/repo)
         String[] parts = source.split("/");
         if (parts.length != 2) {
             context.getSource().sendFailure(Component.literal("§cInvalid source format. Use: username/repo"));
             return 0;
         }
-        
+
         String sourceUser = parts[0];
         String sourceRepo = parts[1];
-        
+
         ApiResponse response = BackendApiClient.cloneRepo(
-            session.getUsername(), 
+            session.getUsername(),
             session.getUuid(),
-            sourceUser, 
-            sourceRepo, 
+            sourceUser,
+            sourceRepo,
             newRepoName
         );
-        
+
         if (response.success) {
             // Set as active repo
             session.setCurrentRepo(newRepoName);
-            
-            // Optionally apply to world (like /git put)
-            context.getSource().sendSuccess(() -> 
+
+            // Optionally apply to world (like /git revert)
+            context.getSource().sendSuccess(() ->
                 Component.literal("§aCloned " + source + " to " + newRepoName + " (use /git revert to apply)"), false);
             return 1;
         }
-        
+
         context.getSource().sendFailure(Component.literal("§cClone failed: " + response.message));
         return 0;
+    }
+
+    // New clone preview system - Litematica style
+    private static int executeClonePreview(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = getPlayer(context);
+        PlayerSession session = SessionManager.getSession(player);
+
+        checkAuthenticated(session, context.getSource());
+        checkRepoActive(session, context.getSource());
+        checkServerOnline(context.getSource());
+
+        // Clear any existing preview
+        clearClonePreview(player, session);
+
+        // Get world and dimension info
+        String worldId = "world";
+        if (player.level().getServer() != null) {
+            worldId = player.level().getServer().getWorldData().getLevelName();
+        }
+        String dimensionId = player.level().dimension().toString();
+
+        // Set anchor at player position (rounded to block)
+        BlockPos anchor = player.blockPosition();
+
+        // Get current instance for source
+        BuildInstance currentInstance = session.getCurrentInstance();
+        String sourceInstanceId = currentInstance != null ? currentInstance.getInstanceId() : null;
+
+        // Initialize clone preview in session
+        session.startClonePreview(session.getCurrentRepo(), sourceInstanceId, anchor, worldId, dimensionId);
+        session.saveInstances(); // Persist clone preview state
+
+        // Load preview from HEAD commit
+        loadClonePreviewFromHead(player, session);
+
+        context.getSource().sendSuccess(() ->
+            Component.literal("§aClone preview started at " + formatPos(anchor) + ". Use §6/git clone anchor §ato adjust, §6/git clone rotate §ato rotate, §6/git clone confirm §ato paste, or §6/git clone cancel §ato clear."), false);
+        return 1;
+    }
+
+    private static int executeCloneAnchor(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = getPlayer(context);
+        PlayerSession session = SessionManager.getSession(player);
+
+        checkAuthenticated(session, context.getSource());
+
+        if (!session.isClonePreviewActive()) {
+            context.getSource().sendFailure(Component.literal("§cNo active clone preview. Use /git clone first."));
+            return 0;
+        }
+
+        // Get the block the player is looking at (up to 5 blocks away)
+        BlockPos targetPos = getTargetBlockPos(player, 5);
+        if (targetPos == null) {
+            context.getSource().sendFailure(Component.literal("§cLook at a block to set as anchor."));
+            return 0;
+        }
+
+        // Update anchor and reload preview
+        session.setClonePreviewAnchor(targetPos);
+        session.saveInstances(); // Persist updated anchor
+        loadClonePreviewFromHead(player, session);
+
+        context.getSource().sendSuccess(() ->
+            Component.literal("§aClone anchor set to " + formatPos(targetPos) + ". Preview updated."), false);
+        return 1;
+    }
+
+    private static int executeCloneRotate(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = getPlayer(context);
+        PlayerSession session = SessionManager.getSession(player);
+
+        checkAuthenticated(session, context.getSource());
+
+        if (!session.isClonePreviewActive()) {
+            context.getSource().sendFailure(Component.literal("§cNo active clone preview. Use /git clone first."));
+            return 0;
+        }
+
+        String angleStr = StringArgumentType.getString(context, "angle");
+        int angle;
+        try {
+            angle = Integer.parseInt(angleStr);
+            if (angle != 0 && angle != 90 && angle != 180 && angle != 270) {
+                throw new IllegalArgumentException();
+            }
+        } catch (IllegalArgumentException e) {
+            context.getSource().sendFailure(Component.literal("§cInvalid angle. Use: 0, 90, 180, or 270"));
+            return 0;
+        }
+
+        // Update rotation and reload preview
+        session.setClonePreviewRotation(angle);
+        session.saveInstances(); // Persist rotation
+        loadClonePreviewFromHead(player, session);
+
+        context.getSource().sendSuccess(() ->
+            Component.literal("§aClone preview rotated to " + angle + "°"), false);
+        return 1;
+    }
+
+    private static int executeCloneConfirm(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = getPlayer(context);
+        PlayerSession session = SessionManager.getSession(player);
+
+        checkAuthenticated(session, context.getSource());
+
+        if (!session.isClonePreviewActive()) {
+            context.getSource().sendFailure(Component.literal("§cNo active clone preview. Use /git clone first."));
+            return 0;
+        }
+
+        // Check OP permission via command source permissions
+        var perms = context.getSource().permissions();
+        if (!(perms instanceof net.minecraft.server.permissions.LevelBasedPermissionSet levelPerms) ||
+            !levelPerms.level().isEqualOrHigherThan(net.minecraft.server.permissions.PermissionLevel.GAMEMASTERS)) {
+            context.getSource().sendFailure(Component.literal("§cYou need OP permission to paste builds."));
+            return 0;
+        }
+
+        // Place actual blocks
+        Map<BlockPos, PlayerSession.ClonePreviewBlock> previewBlocks = session.getClonePreviewBlocks();
+        int placed = 0;
+        int skipped = 0;
+
+        for (PlayerSession.ClonePreviewBlock preview : previewBlocks.values()) {
+            BlockPos pos = preview.targetPos;
+            Block block = parseBlock(preview.targetBlock);
+
+            if (block == null) {
+                skipped++;
+                continue;
+            }
+
+            // Parse block state from the stored string
+            BlockState state = parseBlockState(preview.targetBlock, preview.targetBlockState);
+            if (state == null) {
+                skipped++;
+                continue;
+            }
+
+            // Only place if the current block is different
+            BlockState currentState = player.level().getBlockState(pos);
+            if (!currentState.equals(state)) {
+                player.level().setBlock(pos, state, 3);
+                placed++;
+            } else {
+                skipped++;
+            }
+        }
+
+        // Clear preview
+        clearClonePreview(player, session);
+
+        // Create new instance for this paste
+        String worldId = session.getClonePreviewWorldId();
+        String dimensionId = session.getClonePreviewDimensionId();
+        BlockPos anchor = session.getClonePreviewAnchor();
+
+        if (anchor == null) {
+            context.getSource().sendFailure(Component.literal("§cNo clone preview anchor found. Start a new clone with /git clone"));
+            return 0;
+        }
+
+        // Get or create instance at this location
+        BuildInstance pasteInstance = session.getOrCreateInstance(worldId, dimensionId, anchor);
+        if (pasteInstance == null) {
+            context.getSource().sendFailure(Component.literal("§cFailed to create instance for paste"));
+            return 0;
+        }
+        session.setCurrentInstance(pasteInstance);
+
+        final int finalPlaced = placed;
+        final int finalSkipped = skipped;
+        context.getSource().sendSuccess(() ->
+            Component.literal("§aBuild pasted! Placed " + finalPlaced + " blocks, skipped " + finalSkipped + " (already correct)."), false);
+        return 1;
+    }
+
+    private static int executeCloneCancel(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = getPlayer(context);
+        PlayerSession session = SessionManager.getSession(player);
+
+        checkAuthenticated(session, context.getSource());
+
+        if (!session.isClonePreviewActive()) {
+            context.getSource().sendFailure(Component.literal("§cNo active clone preview."));
+            return 0;
+        }
+
+        clearClonePreview(player, session);
+        context.getSource().sendSuccess(() -> Component.literal("§aClone preview cleared."), false);
+        return 1;
+    }
+
+    // Helper to clear clone preview
+    private static void clearClonePreview(ServerPlayer player, PlayerSession session) {
+        // Clear ghost blocks from GhostBlockManager
+        GhostBlockManager.clearClonePreviews(player);
+
+        // Restore real blocks at preview positions
+        Map<BlockPos, PlayerSession.ClonePreviewBlock> previewBlocks = session.getClonePreviewBlocks();
+        for (BlockPos pos : previewBlocks.keySet()) {
+            BlockState realState = player.level().getBlockState(pos);
+            ClientboundBlockUpdatePacket packet = new ClientboundBlockUpdatePacket(pos, realState);
+            player.connection.send(packet);
+        }
+
+        // Clear session preview state
+        session.clearClonePreview();
+        session.saveInstances();
+    }
+
+    // Helper to load clone preview from HEAD commit
+    private static void loadClonePreviewFromHead(ServerPlayer player, PlayerSession session) {
+        // Clear existing preview ghosts
+        GhostBlockManager.clearClonePreviews(player);
+
+        // Get HEAD commit blocks
+        ApiResponse logResponse = BackendApiClient.getLog(session.getUsername(), session.getClonePreviewSourceRepo());
+        if (!logResponse.success || logResponse.data == null) {
+            return;
+        }
+
+        JsonArray commits = logResponse.data.getAsJsonArray();
+        if (commits.size() == 0) {
+            return;
+        }
+
+        String headHash = commits.get(0).getAsJsonObject().get("commit_hash").getAsString();
+        ApiResponse blocksResponse = BackendApiClient.getCommitBlocks(
+            session.getUsername(),
+            session.getClonePreviewSourceRepo(),
+            headHash
+        );
+
+        if (!blocksResponse.success || blocksResponse.data == null) {
+            return;
+        }
+
+        JsonArray blocks = blocksResponse.data.getAsJsonArray();
+        BlockPos anchor = session.getClonePreviewAnchor();
+        // Rotation is applied via session.rotatePosition() which uses getClonePreviewRotation()
+        String sourceInstanceId = session.getClonePreviewSourceInstanceId();
+
+        // Get source instance for coordinate conversion
+        BuildInstance sourceInstance = sourceInstanceId != null ?
+            session.getAllInstances().stream()
+                .filter(i -> i.getInstanceId().equals(sourceInstanceId))
+                .findFirst()
+                .orElse(null) : null;
+
+        Map<BlockPos, PlayerSession.ClonePreviewBlock> previewBlocks = new HashMap<>();
+
+        for (JsonElement elem : blocks) {
+            JsonObject block = elem.getAsJsonObject();
+            int x = block.get("x").getAsInt();
+            int y = block.get("y").getAsInt();
+            int z = block.get("z").getAsInt();
+            String blockName = block.get("block_name").getAsString();
+
+            // Skip air blocks
+            if (blockName.equals("minecraft:air") || blockName.equals("air")) {
+                continue;
+            }
+
+            // Convert to relative if from source instance
+            BlockPos relativePos;
+            if (sourceInstance != null) {
+                BlockPos absPos = new BlockPos(x, y, z);
+                relativePos = sourceInstance.toRelative(absPos);
+            } else {
+                // Assume already relative or absolute - use as-is
+                relativePos = new BlockPos(x, y, z);
+            }
+
+            // Apply rotation
+            BlockPos rotatedPos = session.rotatePosition(relativePos);
+
+            // Calculate absolute position from anchor
+            BlockPos targetPos = new BlockPos(
+                anchor.getX() + rotatedPos.getX(),
+                anchor.getY() + rotatedPos.getY(),
+                anchor.getZ() + rotatedPos.getZ()
+            );
+
+            // Check current block at target position
+            BlockState currentState = player.level().getBlockState(targetPos);
+            String currentBlockName = BuiltInRegistries.BLOCK.getKey(currentState.getBlock()).toString();
+
+            // Determine if it's a wrong block
+            boolean isWrongBlock = !currentBlockName.equals(blockName) && !currentState.isAir();
+            boolean shouldShowGhost = isWrongBlock || currentState.isAir();
+
+            // Get block state string from backend data
+            String blockStateStr = block.has("block_state") ? block.get("block_state").getAsString() : "";
+
+            if (shouldShowGhost) {
+                // Add ghost block with proper state
+                BlockState ghostState = parseBlockState(blockName, blockStateStr);
+                if (ghostState != null) {
+                    GhostBlockManager.ClonePreviewGhost ghost = new GhostBlockManager.ClonePreviewGhost(
+                        targetPos,
+                        ghostState,
+                        null, // Highlight state could be added
+                        isWrongBlock,
+                        blockName
+                    );
+                    GhostBlockManager.addClonePreviewGhost(player, ghost);
+                    GhostBlockManager.sendClonePreviewsToPlayer(player);
+                }
+            }
+
+            // Store preview data
+            previewBlocks.put(targetPos, new PlayerSession.ClonePreviewBlock(
+                targetPos,
+                blockName,
+                blockStateStr,
+                currentBlockName,
+                isWrongBlock
+            ));
+        }
+
+        session.setClonePreviewBlocks(previewBlocks);
+        session.saveInstances();
+    }
+
+    // Helper to get target block player is looking at
+    private static BlockPos getTargetBlockPos(ServerPlayer player, int maxDistance) {
+        // Simple raycast - get block at player's eye position + look direction * distance
+        net.minecraft.world.phys.Vec3 eyePos = player.getEyePosition(1.0f);
+        net.minecraft.world.phys.Vec3 lookDir = player.getViewVector(1.0f);
+
+        for (int i = 1; i <= maxDistance * 10; i++) {
+            double distance = i / 10.0;
+            net.minecraft.world.phys.Vec3 checkPos = eyePos.add(lookDir.x * distance, lookDir.y * distance, lookDir.z * distance);
+            BlockPos blockPos = BlockPos.containing(checkPos);
+            BlockState state = player.level().getBlockState(blockPos);
+            if (!state.isAir()) {
+                return blockPos;
+            }
+        }
+        return null;
+    }
+
+    // ==================== INSTANCE MANAGEMENT COMMANDS ====================
+
+    private static int executeInstanceList(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = getPlayer(context);
+        PlayerSession session = SessionManager.getSession(player);
+
+        checkAuthenticated(session, context.getSource());
+        checkRepoActive(session, context.getSource());
+
+        Collection<BuildInstance> allInstances = session.getAllInstances();
+        if (allInstances.isEmpty()) {
+            context.getSource().sendFailure(Component.literal("§cNo build instances found. Use §6/git instance new §cto create one."));
+            return 0;
+        }
+
+        // Get current dimension
+        String currentDimension = player.level().dimension().toString();
+        BlockPos playerPos = player.blockPosition();
+
+        // Separate instances by dimension
+        List<BuildInstance> currentDimInstances = new ArrayList<>();
+        Map<String, Integer> otherDimCounts = new HashMap<>();
+
+        for (BuildInstance instance : allInstances) {
+            if (instance.getDimensionId().equals(currentDimension)) {
+                currentDimInstances.add(instance);
+            } else {
+                String dimId = instance.getDimensionId();
+                otherDimCounts.put(dimId, otherDimCounts.getOrDefault(dimId, 0) + 1);
+            }
+        }
+
+        // Sort current dimension instances by distance
+        currentDimInstances.sort(Comparator.comparingDouble(i -> i.distanceToAnchor(playerPos)));
+
+        // Build output
+        StringBuilder sb = new StringBuilder();
+        sb.append("§aBuild instances for §f").append(session.getCurrentRepo()).append("§a in §f").append(formatDimensionName(currentDimension)).append(":\n");
+
+        // Show auto-detection status
+        boolean autoDetect = session.isAutoDetectionEnabled();
+        sb.append(autoDetect ? "§7Auto-detection: §aON §7(/git instance autodetect off to disable)\n" :
+                              "§7Auto-detection: §cOFF §7(manual control enabled)\n");
+
+        String currentInstanceId = session.getCurrentInstanceId();
+
+        if (currentDimInstances.isEmpty()) {
+            sb.append("§cNo instances in this dimension. Use §6/git instance new §cto create one.\n");
+        } else {
+            int index = 1;
+            for (BuildInstance instance : currentDimInstances) {
+                boolean isCurrent = instance.getInstanceId().equals(currentInstanceId);
+                double distance = instance.distanceToAnchor(playerPos);
+                BlockPos anchor = instance.getAnchorPos();
+                int pendingCount = instance.getPendingCommits().size();
+
+                sb.append(isCurrent ? "§2" : "§7").append("#").append(index).append(" ");
+                sb.append("§f").append(formatPos(anchor)).append(" ");
+                sb.append(isCurrent ? "§2" : "§a").append(formatDistance(distance)).append(" away");
+                if (isCurrent) sb.append(" §2(current)");
+                sb.append("\n");
+
+                if (pendingCount > 0) {
+                    sb.append("  §7Pending: ").append(pendingCount).append(" commits\n");
+                }
+                index++;
+            }
+        }
+
+        // Show other dimensions summary
+        if (!otherDimCounts.isEmpty()) {
+            sb.append("\n§7Other dimensions:\n");
+            for (Map.Entry<String, Integer> entry : otherDimCounts.entrySet()) {
+                sb.append("§7  ").append(formatDimensionName(entry.getKey()))
+                  .append(": ").append(entry.getValue()).append(" instance(s)\n");
+            }
+        }
+
+        context.getSource().sendSuccess(() -> Component.literal(sb.toString()), false);
+        return 1;
+    }
+
+    private static int executeInstanceHighlightNearest(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = getPlayer(context);
+        PlayerSession session = SessionManager.getSession(player);
+
+        checkAuthenticated(session, context.getSource());
+        checkRepoActive(session, context.getSource());
+
+        String currentDimension = player.level().dimension().toString();
+        BlockPos playerPos = player.blockPosition();
+
+        // Find nearest instance in current dimension
+        BuildInstance nearest = null;
+        double nearestDistance = Double.MAX_VALUE;
+
+        for (BuildInstance instance : session.getAllInstances()) {
+            if (instance.getDimensionId().equals(currentDimension)) {
+                double dist = instance.distanceToAnchor(playerPos);
+                if (dist < nearestDistance) {
+                    nearestDistance = dist;
+                    nearest = instance;
+                }
+            }
+        }
+
+        if (nearest == null) {
+            context.getSource().sendFailure(Component.literal("§cNo instances found in this dimension."));
+            return 0;
+        }
+
+        spawnBeaconBeam(player, nearest.getAnchorPos(), nearest.getInstanceId().equals(session.getCurrentInstanceId()));
+
+        final BuildInstance finalNearest = nearest;
+        final double finalDistance = nearestDistance;
+        context.getSource().sendSuccess(() ->
+            Component.literal("§aBeacon beam at " + formatPos(finalNearest.getAnchorPos()) +
+                " §7(" + formatDistance(finalDistance) + " away)"), false);
+        return 1;
+    }
+
+    private static int executeInstanceHighlight(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = getPlayer(context);
+        PlayerSession session = SessionManager.getSession(player);
+
+        checkAuthenticated(session, context.getSource());
+        checkRepoActive(session, context.getSource());
+
+        String idStr = StringArgumentType.getString(context, "id");
+
+        // Parse the ID (format: #1, #2, etc. or full instance ID)
+        BuildInstance targetInstance = findInstanceById(session, player, idStr);
+
+        if (targetInstance == null) {
+            context.getSource().sendFailure(Component.literal("§cInstance not found: " + idStr));
+            return 0;
+        }
+
+        // Check if in same dimension
+        String currentDimension = player.level().dimension().toString();
+        if (!targetInstance.getDimensionId().equals(currentDimension)) {
+            context.getSource().sendFailure(Component.literal("§cInstance is in " +
+                formatDimensionName(targetInstance.getDimensionId()) + ". You must be in the same dimension to highlight it."));
+            return 0;
+        }
+
+        spawnBeaconBeam(player, targetInstance.getAnchorPos(),
+            targetInstance.getInstanceId().equals(session.getCurrentInstanceId()));
+
+        final BlockPos anchor = targetInstance.getAnchorPos();
+        context.getSource().sendSuccess(() ->
+            Component.literal("§aBeacon beam at " + formatPos(anchor)), false);
+        return 1;
+    }
+
+    private static int executeInstanceSelect(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = getPlayer(context);
+        PlayerSession session = SessionManager.getSession(player);
+
+        checkAuthenticated(session, context.getSource());
+        checkRepoActive(session, context.getSource());
+
+        String idStr = StringArgumentType.getString(context, "id");
+
+        BuildInstance targetInstance = findInstanceById(session, player, idStr);
+
+        if (targetInstance == null) {
+            context.getSource().sendFailure(Component.literal("§cInstance not found: " + idStr));
+            return 0;
+        }
+
+        // Check if in same world/dimension
+        String worldId = "world";
+        if (player.level().getServer() != null) {
+            worldId = player.level().getServer().getWorldData().getLevelName();
+        }
+        String dimensionId = player.level().dimension().toString();
+
+        if (!targetInstance.isInSameContext(worldId, dimensionId)) {
+            context.getSource().sendFailure(Component.literal("§cInstance is in " +
+                formatDimensionName(targetInstance.getDimensionId()) +
+                " (world: " + targetInstance.getWorldId() + "). You must be in the same world and dimension."));
+            return 0;
+        }
+
+        session.setCurrentInstance(targetInstance);
+        session.saveInstances();
+
+        final BlockPos anchor = targetInstance.getAnchorPos();
+        context.getSource().sendSuccess(() ->
+            Component.literal("§aSwitched to instance at " + formatPos(anchor)), false);
+        return 1;
+    }
+
+    private static int executeInstanceNew(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        return executeInstanceNewInternal(context, null);
+    }
+
+    private static int executeInstanceNewNamed(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        String name = StringArgumentType.getString(context, "name");
+        return executeInstanceNewInternal(context, name);
+    }
+
+    private static int executeInstanceNewInternal(CommandContext<CommandSourceStack> context, String name) throws CommandSyntaxException {
+        ServerPlayer player = getPlayer(context);
+        PlayerSession session = SessionManager.getSession(player);
+
+        checkAuthenticated(session, context.getSource());
+        checkRepoActive(session, context.getSource());
+
+        // Get world and dimension
+        String worldId = "world";
+        if (player.level().getServer() != null) {
+            worldId = player.level().getServer().getWorldData().getLevelName();
+        }
+        String dimensionId = player.level().dimension().toString();
+        BlockPos playerPos = player.blockPosition();
+
+        // Check for nearby instances
+        double[] nearestDist = { Double.MAX_VALUE };
+        for (BuildInstance instance : session.getAllInstances()) {
+            if (instance.isInSameContext(worldId, dimensionId)) {
+                double dist = instance.distanceToAnchor(playerPos);
+                if (dist < nearestDist[0]) {
+                    nearestDist[0] = dist;
+                }
+            }
+        }
+
+        // Create new instance at player position using forceCreateInstance
+        BuildInstance newInstance = session.forceCreateInstance(worldId, dimensionId, playerPos);
+        session.setCurrentInstance(newInstance);
+        session.saveInstances();
+
+        final double finalNearestDist = nearestDist[0];
+        context.getSource().sendSuccess(() ->
+            Component.literal("§aNew instance created at " + formatPos(playerPos) +
+                (finalNearestDist < 1000 ? " §7(warning: " + formatDistance(finalNearestDist) + " from nearest instance)" : "")), false);
+        return 1;
+    }
+
+    private static int executeInstanceInfo(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = getPlayer(context);
+        PlayerSession session = SessionManager.getSession(player);
+
+        checkAuthenticated(session, context.getSource());
+        checkRepoActive(session, context.getSource());
+
+        BuildInstance current = session.getCurrentInstance();
+        if (current == null) {
+            context.getSource().sendFailure(Component.literal("§cNo current instance. Use /git instance list and /git instance select."));
+            return 0;
+        }
+
+        BlockPos anchor = current.getAnchorPos();
+        int pendingCount = current.getPendingCommits().size();
+        double distance = current.distanceToAnchor(player.blockPosition());
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("§aCurrent Instance Info:\n");
+        sb.append("§7ID: §f").append(current.getInstanceId()).append("\n");
+        sb.append("§7World: §f").append(current.getWorldId()).append("\n");
+        sb.append("§7Dimension: §f").append(formatDimensionName(current.getDimensionId())).append("\n");
+        sb.append("§7Anchor: §f").append(formatPos(anchor)).append("\n");
+        sb.append("§7Distance: §f").append(formatDistance(distance)).append("\n");
+        sb.append("§7Pending commits: §f").append(pendingCount).append("\n");
+        sb.append("§7Total instances: §f").append(session.getAllInstances().size());
+
+        context.getSource().sendSuccess(() -> Component.literal(sb.toString()), false);
+        return 1;
+    }
+
+    private static int executeInstanceClearHighlight(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        // Clear any active beacon beams by sending empty packets or letting them timeout
+        // The beacon beams are particles that fade, so we just stop sending new ones
+        // For now, just acknowledge
+        context.getSource().sendSuccess(() -> Component.literal("§aBeacon beams cleared (they fade automatically)."), false);
+        return 1;
+    }
+
+    private static int executeInstanceAutoDetectOn(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = getPlayer(context);
+        PlayerSession session = SessionManager.getSession(player);
+
+        checkAuthenticated(session, context.getSource());
+
+        session.setAutoDetectionEnabled(true);
+        session.saveInstances();
+
+        context.getSource().sendSuccess(() ->
+            Component.literal("§aAuto-detection §aENABLED§a. The system will automatically switch instances based on your location."), false);
+        return 1;
+    }
+
+    private static int executeInstanceAutoDetectOff(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = getPlayer(context);
+        PlayerSession session = SessionManager.getSession(player);
+
+        checkAuthenticated(session, context.getSource());
+
+        session.setAutoDetectionEnabled(false);
+        session.saveInstances();
+
+        context.getSource().sendSuccess(() ->
+            Component.literal("§cAuto-detection DISABLED§a. Use §6/git instance select §ato manually switch instances."), false);
+        return 1;
+    }
+
+    private static int executeInstanceAutoDetectStatus(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = getPlayer(context);
+        PlayerSession session = SessionManager.getSession(player);
+
+        checkAuthenticated(session, context.getSource());
+
+        boolean enabled = session.isAutoDetectionEnabled();
+        context.getSource().sendSuccess(() ->
+            Component.literal("§7Auto-detection is currently " + (enabled ? "§aON" : "§cOFF") +
+                "§7. Use §6/git instance autodetect on§7 or §6/git instance autodetect off§7 to change."), false);
+        return 1;
+    }
+
+    // Helper methods for instance management
+    private static BuildInstance findInstanceById(PlayerSession session, ServerPlayer player, String idStr) {
+        String currentDimension = player.level().dimension().toString();
+        BlockPos playerPos = player.blockPosition();
+
+        // Get instances in current dimension sorted by distance
+        List<BuildInstance> sortedInstances = session.getAllInstances().stream()
+            .filter(i -> i.getDimensionId().equals(currentDimension))
+            .sorted(Comparator.comparingDouble(i -> i.distanceToAnchor(playerPos)))
+            .toList();
+
+        // Check if it's a numbered ID like #1, #2, etc.
+        if (idStr.startsWith("#")) {
+            try {
+                int index = Integer.parseInt(idStr.substring(1)) - 1; // Convert to 0-based
+                if (index >= 0 && index < sortedInstances.size()) {
+                    return sortedInstances.get(index);
+                }
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+
+        // Otherwise search by full instance ID
+        for (BuildInstance instance : session.getAllInstances()) {
+            if (instance.getInstanceId().equals(idStr)) {
+                return instance;
+            }
+        }
+
+        return null;
+    }
+
+    private static int executeDeactivate(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = getPlayer(context);
+        PlayerSession session = SessionManager.getSession(player);
+
+        checkAuthenticated(session, context.getSource());
+
+        String deactivatedRepo = session.getCurrentRepo();
+        session.deactivate();
+        session.saveInstances();
+
+        final String repoName = deactivatedRepo;
+        context.getSource().sendSuccess(() ->
+            Component.literal("§aDeactivated '§f" + repoName + "§a'. GitBuild tracking paused.\n" +
+                "§7Ghost blocks remain visible. Use §6/git activate <repo> §7to resume."), false);
+        return 1;
+    }
+
+    private static void spawnBeaconBeam(ServerPlayer player, BlockPos anchor, boolean isCurrentInstance) {
+        // Spawn particles in a vertical beam
+        // Use happy villager particles for normal, witch particles for current
+        net.minecraft.core.particles.ParticleOptions particle = isCurrentInstance ?
+            net.minecraft.core.particles.ParticleTypes.HAPPY_VILLAGER :
+            net.minecraft.core.particles.ParticleTypes.WITCH;
+
+        ServerLevel level = (ServerLevel) player.level();
+
+        // Spawn particles from anchor up to 50 blocks high
+        for (int i = 1; i <= 50; i++) {
+            double x = anchor.getX() + 0.5;
+            double y = anchor.getY() + i;
+            double z = anchor.getZ() + 0.5;
+
+            level.sendParticles(particle, x, y, z, 1, 0.0, 0.0, 0.0, 0.0);
+        }
+
+        // Also spawn a ring of particles at the base
+        for (int i = 0; i < 8; i++) {
+            double angle = i * Math.PI / 4;
+            double x = anchor.getX() + 0.5 + Math.cos(angle) * 0.5;
+            double z = anchor.getZ() + 0.5 + Math.sin(angle) * 0.5;
+            level.sendParticles(particle, x, anchor.getY() + 1.1, z, 1, 0.0, 0.0, 0.0, 0.0);
+        }
+    }
+
+    private static String formatDimensionName(String dimensionId) {
+        return switch (dimensionId) {
+            case "minecraft:overworld" -> "Overworld";
+            case "minecraft:the_nether" -> "Nether";
+            case "minecraft:the_end" -> "End";
+            default -> dimensionId.replace("minecraft:", "");
+        };
+    }
+
+    private static String formatDistance(double distance) {
+        if (distance < 10) {
+            return String.format("%.1f blocks", distance);
+        } else if (distance < 1000) {
+            return String.format("%.0f blocks", distance);
+        } else {
+            return String.format("%.1f km", distance / 1000);
+        }
     }
 
     // Utility
@@ -1439,5 +2411,83 @@ public class GitCommand {
             GitBuildMod.LOGGER.warn("Error parsing block name: {}", blockName, e);
         }
         return null;
+    }
+
+    /**
+     * Parse a block with its full state string.
+     * Handles formats like: "minecraft:stairs[facing=east,half=bottom]" or "minecraft:redstone_torch[lit=true]"
+     */
+    private static BlockState parseBlockState(String blockName, String stateString) {
+        Block block = parseBlock(blockName);
+        if (block == null) {
+            return null;
+        }
+
+        BlockState state = block.defaultBlockState();
+
+        // If no state string or empty, return default
+        if (stateString == null || stateString.isEmpty() || stateString.equals("{}")) {
+            return state;
+        }
+
+        try {
+            // Parse state string - format: "[key=value,key2=value2]" or "Block{key=value,key2=value2}"
+            String cleanState = stateString;
+
+            // Extract just the properties part if wrapped in Block{} or []
+            if (cleanState.contains("{")) {
+                cleanState = cleanState.substring(cleanState.indexOf('{') + 1);
+                if (cleanState.endsWith("}")) {
+                    cleanState = cleanState.substring(0, cleanState.length() - 1);
+                }
+            } else if (cleanState.startsWith("[")) {
+                cleanState = cleanState.substring(1);
+                if (cleanState.endsWith("]")) {
+                    cleanState = cleanState.substring(0, cleanState.length() - 1);
+                }
+            }
+
+            // Parse each property
+            if (!cleanState.isEmpty()) {
+                String[] pairs = cleanState.split(",");
+                for (String pair : pairs) {
+                    String[] keyValue = pair.split("=", 2);
+                    if (keyValue.length == 2) {
+                        String key = keyValue[0].trim();
+                        String value = keyValue[1].trim();
+
+                        // Find the property and set it
+                        state = setBlockStateProperty(state, key, value);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            GitBuildMod.LOGGER.warn("Failed to parse block state '{}': {}", stateString, e.getMessage());
+        }
+
+        return state;
+    }
+
+    /**
+     * Set a specific property on a BlockState
+     */
+    @SuppressWarnings("unchecked")
+    private static <T extends Comparable<T>> BlockState setBlockStateProperty(BlockState state, String propertyName, String value) {
+        net.minecraft.world.level.block.state.properties.Property<?> property = state.getBlock().getStateDefinition().getProperty(propertyName);
+        if (property == null) {
+            return state; // Property doesn't exist for this block
+        }
+
+        try {
+            // Parse the value based on property type
+            Optional<?> parsedValue = property.getValue(value);
+            if (parsedValue.isPresent()) {
+                return state.setValue((net.minecraft.world.level.block.state.properties.Property<T>) property, (T) parsedValue.get());
+            }
+        } catch (Exception e) {
+            GitBuildMod.LOGGER.debug("Failed to set property {}={}: {}", propertyName, value, e.getMessage());
+        }
+
+        return state;
     }
 }

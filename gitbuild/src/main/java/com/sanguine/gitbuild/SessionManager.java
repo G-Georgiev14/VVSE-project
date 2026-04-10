@@ -31,7 +31,6 @@ public class SessionManager {
     public static void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer serverPlayer) {
             removeSession(serverPlayer.getUUID());
-            GitBuildMod.LOGGER.info("Cleared session for player: {}", serverPlayer.getName().getString());
         }
     }
 
@@ -40,7 +39,6 @@ public class SessionManager {
         if (event.getEntity() instanceof ServerPlayer serverPlayer) {
             // Initialize session for player
             getSession(serverPlayer);
-            GitBuildMod.LOGGER.info("Initialized session for player: {}", serverPlayer.getName().getString());
         }
     }
 }
