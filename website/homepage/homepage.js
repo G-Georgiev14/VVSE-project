@@ -81,14 +81,28 @@ async function loadRepositories() {
             console.log('Number of public repos found:', repoNames.length);
             
             // Transform repo names into repository objects with additional metadata
-            repositories = repoNames.map(repo => ({
-                name: repo.name,
-                username: repo.username,
-                description: `Minecraft build repository`,
-                visibility: repo.visibility || 'public',
-                language: 'Minecraft',
-                updated: 'Recently',
-                commits: 0
+            repositories = await Promise.all(repoNames.map(async (repo) => {
+                // Fetch commit count for each repository
+                let commitCount = 0;
+                try {
+                    const commitsResponse = await fetch(`${API_BASE_URL}/users/${repo.username}/${repo.name}/log`);
+                    if (commitsResponse.ok) {
+                        const commits = await commitsResponse.json();
+                        commitCount = commits.length;
+                    }
+                } catch (error) {
+                    console.error(`Failed to load commits for ${repo.name}:`, error);
+                }
+                
+                return {
+                    name: repo.name,
+                    username: repo.username,
+                    description: `Minecraft build repository`,
+                    visibility: repo.visibility || 'public',
+                    language: 'Minecraft',
+                    updated: 'Recently',
+                    commits: commitCount
+                };
             }));
             
             console.log('Transformed repositories:', repositories);
@@ -180,9 +194,11 @@ function setupEventListeners() {
             console.log('Button disabled:', btn.disabled);
             console.log('Button dataset:', btn.dataset);
             const repoName = btn.dataset.repo;
+            const username = btn.dataset.username;
             console.log('Repository name:', repoName);
+            console.log('Username:', username);
             if (!btn.disabled) {
-                openRepository(repoName);
+                openRepository(repoName, username);
             } else {
                 console.log('View button is disabled, cannot open repository');
             }
@@ -608,6 +624,10 @@ async function openRepository(repoName, username) {
 }
 
 async function showRepositoryContentModal(repo, username) {
+    // Remove any existing modals first
+    const existingModals = document.querySelectorAll('.modal-overlay');
+    existingModals.forEach(modal => modal.remove());
+    
     const modal = createRepositoryContentModal(repo, username);
     document.body.appendChild(modal);
     
@@ -678,9 +698,6 @@ function createRepositoryContentModal(repo, username) {
                                     <button class="btn btn-primary" onclick="cloneRepository('${repo.name}', '${username}')">
                                         <i class="fas fa-code-branch"></i> Clone
                                     </button>
-                                    <button class="btn btn-secondary" onclick="downloadRepository('${repo.name}')">
-                                        <i class="fas fa-download"></i> Download
-                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -722,7 +739,10 @@ function setupRepositoryContentModal(modal) {
         document.body.removeChild(modal);
     };
     
-    closeBtn.addEventListener('click', closeModal);
+    closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeModal();
+    });
     
     modal.addEventListener('click', (e) => {
         if (e.target === modal) {
