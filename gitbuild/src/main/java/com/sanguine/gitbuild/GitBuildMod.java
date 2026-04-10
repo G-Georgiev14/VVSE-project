@@ -10,7 +10,6 @@ import com.mojang.logging.LogUtils;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -43,21 +42,15 @@ public class GitBuildMod {
 
     @SubscribeEvent
     public void onBlockPlace(BlockEvent.EntityPlaceEvent event) {
-        Level level = (Level) event.getLevel();
         BlockPos pos = event.getPos();
-
-        LOGGER.debug("Block placed: {} by {} at position ({}, {}, {}) in dimension {}",
-                event.getPlacedBlock().getBlock(),
-                event.getEntity() != null ? event.getEntity().getName().getString() : "unknown",
-                pos.getX(),
-                pos.getY(),
-                pos.getZ(),
-                level.dimension());
 
         // Auto-add functionality
         if (event.getEntity() instanceof ServerPlayer player) {
             PlayerSession session = SessionManager.getSession(player);
             if (session != null && session.hasActiveRepo() && session.isAutoAdd()) {
+                // Update instance context based on current world/dimension/position
+                updateInstanceContext(player, session, pos);
+
                 BlockState newState = event.getPlacedBlock();
 
                 // Check if there's a ghost block at this position (player is restoring)
@@ -73,7 +66,6 @@ public class GitBuildMod {
                 // Then stage the new block - status will compare against ghost/HEAD
                 session.unstageBlock(pos);
                 session.stageBlock(pos, null, newState, PlayerSession.ChangeType.ADD);
-                LOGGER.debug("Auto-added block at {} for player {}", pos, player.getName().getString());
             }
         }
     }
@@ -86,13 +78,34 @@ public class GitBuildMod {
         if (event.getPlayer() instanceof ServerPlayer player) {
             PlayerSession session = SessionManager.getSession(player);
             if (session != null && session.hasActiveRepo() && session.isAutoRm()) {
+                // Update instance context based on current world/dimension/position
+                updateInstanceContext(player, session, pos);
+
                 BlockState oldState = event.getState();
                 BlockState airState = net.minecraft.world.level.block.Blocks.AIR.defaultBlockState();
 
                 // Stage the block as removed (will be excluded from commit snapshot)
                 session.stageBlock(pos, oldState, airState, PlayerSession.ChangeType.REMOVE);
-                LOGGER.debug("Auto-staged block removal at {} for player {}", pos, player.getName().getString());
             }
         }
+    }
+
+    /**
+     * Updates the player's current build instance context based on their world, dimension, and position.
+     * This allows the same repo to be used across different worlds, dimensions, and locations.
+     */
+    private void updateInstanceContext(ServerPlayer player, PlayerSession session, BlockPos pos) {
+        // Get world ID from the level's server world name
+        String worldId = "world";
+        if (player.level().getServer() != null) {
+            worldId = player.level().getServer().getWorldData().getLevelName();
+        }
+
+        // Get dimension ID (e.g., "minecraft:overworld", "minecraft:the_nether")
+        // dimension() returns a ResourceKey<Level>
+        String dimensionId = player.level().dimension().toString();
+
+        // Update the instance context - this will auto-detect or create a new instance
+        session.updateInstanceContext(worldId, dimensionId, pos);
     }
 }
