@@ -101,7 +101,9 @@ async function loadRepositories() {
                     visibility: repo.visibility || 'public',
                     language: 'Minecraft',
                     updated: 'Recently',
-                    commits: commitCount
+                    commits: commitCount,
+                    stars: repo.stars || 0,
+                    userStarred: false  // Will be set by initializeStarButton
                 };
             }));
             
@@ -208,7 +210,8 @@ function setupEventListeners() {
         if (e.target.closest('.star-btn')) {
             const btn = e.target.closest('.star-btn');
             const repoName = btn.dataset.repo;
-            toggleStar(btn, repoName);
+            const repoOwner = btn.dataset.username;
+            toggleStar(btn, repoName, repoOwner);
         }
         
         // Filter button clicks
@@ -368,7 +371,6 @@ function renderRepositories() {
                             <i class="fas fa-${repo.visibility === 'public' ? 'globe' : 'lock'}"></i>
                             ${repo.visibility}
                         </span>
-                        ${isFeatured ? '<span class="repo-badge featured-badge"><i class="fas fa-star"></i>Featured</span>' : ''}
                     </div>
                 </div>
                 <div class="repo-author">
@@ -394,7 +396,7 @@ function renderRepositories() {
                     </div>
                     <div class="stat-item">
                         <i class="fas fa-star stat-icon"></i>
-                        <span class="stat-value">${repo.stars || Math.floor(Math.random() * 50)}</span>
+                        <span class="stat-value">${repo.stars || 0}</span>
                         <span class="stat-label">Stars</span>
                     </div>
                 </div>
@@ -408,7 +410,7 @@ function renderRepositories() {
                         <i class="fas fa-${repo.visibility === 'private' ? 'lock' : 'eye'} btn-icon"></i>
                         <span>View</span>
                     </button>`}
-                    <button class="star-btn" data-repo="${repo.name}">
+                    <button class="star-btn" data-repo="${repo.name}" data-username="${repo.username}">
                         <i class="fas fa-star btn-icon"></i>
                         <span>Star</span>
                     </button>
@@ -493,14 +495,57 @@ function attachRepositoryListeners() {
         });
     });
 
-    // Add star button listeners
+    // Initialize star button state (click handler is managed by global document listener in setupEventListeners)
     const starButtons = document.querySelectorAll('.star-btn');
     starButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            const repoName = button.dataset.repo;
-            toggleStar(button, repoName);
-        });
+        const repoName = button.dataset.repo;
+        const repoOwner = button.dataset.username;
+        // Initialize button text based on current state
+        initializeStarButton(button, repoName, repoOwner);
     });
+}
+
+async function initializeStarButton(button, repoName, repoOwner, retries = 3) {
+    if (!currentUser) return;
+
+    const repo = repositories.find(r => r.name === repoName && r.username === repoOwner);
+    const btnText = button.querySelector('span');
+
+    // Use stored state if available (persists across re-renders)
+    if (repo && repo.userStarred !== undefined) {
+        if (repo.userStarred) {
+            button.classList.add('starred');
+            if (btnText) btnText.textContent = 'Unstar';
+        } else {
+            button.classList.remove('starred');
+            if (btnText) btnText.textContent = 'Star';
+        }
+    }
+
+    // Delay then verify with backend
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    try {
+        const isStarred = await checkStarredStatus(repoName, repoOwner);
+
+        // Only update if button hasn't been manually toggled recently
+        if (!button.dataset.lastToggle || Date.now() - parseInt(button.dataset.lastToggle) > 1000) {
+            if (isStarred) {
+                button.classList.add('starred');
+                if (btnText) btnText.textContent = 'Unstar';
+            } else {
+                button.classList.remove('starred');
+                if (btnText) btnText.textContent = 'Star';
+            }
+            // Update stored state
+            if (repo) repo.userStarred = isStarred;
+        }
+    } catch (error) {
+        if (retries > 0) {
+            await new Promise(resolve => setTimeout(resolve, 300));
+            return initializeStarButton(button, repoName, repoOwner, retries - 1);
+        }
+    }
 }
 
 function handleDeleteRepository(event) {
@@ -1053,44 +1098,8 @@ function createCloneModal(repoName, username) {
                 </div>
             </div>
             <div class="modal-body">
-                <div class="clone-tabs">
-                    <button class="tab-btn active" data-tab="quick">Quick Clone</button>
-                    <button class="tab-btn" data-tab="commands">Commands</button>
-                </div>
-                
                 <div class="tab-content">
-                    <div class="tab-pane active" id="quick">
-                        <div class="quick-clone-section">
-                            <div class="clone-options">
-                                <div class="option-group">
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" id="includeCommits" checked>
-                                        <span class="checkmark"></span>
-                                        Include all commits
-                                    </label>
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" id="includeBlocks" checked>
-                                        <span class="checkmark"></span>
-                                        Include all blocks
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div class="clone-preview">
-                                <h4>Preview</h4>
-                                <div class="preview-item">
-                                    <i class="fas fa-folder"></i>
-                                    <span id="previewName">${repoName}-clone</span>
-                                </div>
-                                <div class="preview-details">
-                                    <span id="previewSize">Calculating...</span>
-                                    <span id="previewCommits">Unknown commits</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="tab-pane" id="commands">
+                    <div class="tab-pane active" id="commands">
                         <div class="command-section">
                             <h4>Minecraft Clone Commands</h4>
                             <div class="command-blocks">
@@ -1163,15 +1172,17 @@ function setupCloneModal(modal) {
         });
     });
     
-    // Checkbox interactions
+    // Checkbox interactions (only if elements exist)
     const includeCommits = modal.querySelector('#includeCommits');
     const includeBlocks = modal.querySelector('#includeBlocks');
     
-    [includeCommits, includeBlocks].forEach(checkbox => {
-        checkbox.addEventListener('change', () => {
-            updateClonePreview(modal);
+    if (includeCommits && includeBlocks) {
+        [includeCommits, includeBlocks].forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                updateClonePreview(modal);
+            });
         });
-    });
+    }
     
     cancelBtn.addEventListener('click', closeModal);
     
@@ -1379,23 +1390,122 @@ function filterRepositories(filter) {
     });
 }
 
-function toggleStar(button, repoName) {
+async function checkStarredStatus(repoName, repoOwner) {
+    if (!currentUser) return false;
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/repos/${repoOwner}/${repoName}/starred?uuid=${currentUser.uuid}`);
+        if (response.ok) {
+            const result = await response.json();
+            return result.starred;
+        }
+    } catch (error) {
+        console.error('Failed to check starred status:', error);
+    }
+    return false;
+}
+
+async function toggleStar(button, repoName, repoOwner) {
     const isStarred = button.classList.contains('starred');
-    
-    if (isStarred) {
-        button.classList.remove('starred');
-        button.querySelector('i').className = 'fas fa-star btn-icon';
-        showNotification(`Unstarred ${repoName}`, 'info');
-    } else {
-        button.classList.add('starred');
-        button.querySelector('i').className = 'fas fa-star btn-icon';
-        showNotification(`Starred ${repoName}!`, 'success');
-        
-        // Add star animation
-        button.style.transform = 'scale(1.2) rotate(72deg)';
-        setTimeout(() => {
-            button.style.transform = 'scale(1) rotate(0deg)';
-        }, 300);
+
+    if (!currentUser) {
+        showNotification('Please log in to star repositories', 'error');
+        return;
+    }
+
+    // Prevent creator from starring their own repo
+    if (currentUser.username === repoOwner) {
+        showNotification('You cannot star your own repository', 'error');
+        return;
+    }
+
+    try {
+        const method = isStarred ? 'DELETE' : 'POST';
+        const response = await fetch(`${API_BASE_URL}/repos/${repoOwner}/${repoName}/star?uuid=${currentUser.uuid}`, {
+            method: method
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            const newStars = result.stars;
+
+            // Mark that we just toggled this button manually
+            button.dataset.lastToggle = Date.now();
+
+            // Update button state
+            const btnText = button.querySelector('span');
+            if (isStarred) {
+                button.classList.remove('starred');
+                if (btnText) btnText.textContent = 'Star';
+                showNotification(`Unstarred ${repoName}`, 'info');
+            } else {
+                button.classList.add('starred');
+                if (btnText) btnText.textContent = 'Unstar';
+                showNotification(`Starred ${repoName}!`, 'success');
+            }
+
+            // Update star count display
+            const starsDisplay = document.getElementById(`stars-${repoName}`);
+            if (starsDisplay) {
+                starsDisplay.textContent = newStars;
+            }
+
+            // Update local repository data
+            const repo = repositories.find(r => r.name === repoName && r.username === repoOwner);
+            if (repo) {
+                repo.stars = newStars;
+                repo.userStarred = !isStarred;  // Update stored starred state
+            }
+        } else {
+            const error = await response.json();
+            // If already starred, unstar it (toggle behavior)
+            if (error.detail && error.detail.includes('already starred')) {
+                // Auto-unstar since already starred
+                const unstarResponse = await fetch(`${API_BASE_URL}/repos/${repoOwner}/${repoName}/star?uuid=${currentUser.uuid}`, {
+                    method: 'DELETE'
+                });
+                if (unstarResponse.ok) {
+                    const result = await unstarResponse.json();
+                    button.dataset.lastToggle = Date.now();
+                    button.classList.remove('starred');
+                    const btnText = button.querySelector('span');
+                    if (btnText) btnText.textContent = 'Star';
+                    showNotification(`Unstarred ${repoName}`, 'info');
+                    const starsDisplay = document.getElementById(`stars-${repoName}`);
+                    if (starsDisplay) starsDisplay.textContent = result.stars;
+                    const repo = repositories.find(r => r.name === repoName && r.username === repoOwner);
+                    if (repo) {
+                        repo.stars = result.stars;
+                        repo.userStarred = false;
+                    }
+                }
+            } else if (error.detail && error.detail.includes('not starred')) {
+                // Auto-star since not starred
+                const starResponse = await fetch(`${API_BASE_URL}/repos/${repoOwner}/${repoName}/star?uuid=${currentUser.uuid}`, {
+                    method: 'POST'
+                });
+                if (starResponse.ok) {
+                    const result = await starResponse.json();
+                    button.dataset.lastToggle = Date.now();
+                    button.classList.add('starred');
+                    const btnText = button.querySelector('span');
+                    if (btnText) btnText.textContent = 'Unstar';
+                    showNotification(`Starred ${repoName}!`, 'success');
+                    const starsDisplay = document.getElementById(`stars-${repoName}`);
+                    if (starsDisplay) starsDisplay.textContent = result.stars;
+                    const repo = repositories.find(r => r.name === repoName && r.username === repoOwner);
+                    if (repo) {
+                        repo.stars = result.stars;
+                        repo.userStarred = true;
+                    }
+                }
+            } else {
+                showNotification(`Failed to toggle star: ${error.detail || 'Unknown error'}`, 'error');
+            }
+        }
+    } catch (error) {
+        console.error('Star toggle failed:', error);
+        showNotification('Failed to toggle star. Please try again.', 'error');
     }
 }
 
@@ -1497,26 +1607,13 @@ function toggleProfileMenu(e) {
     const dropdown = document.createElement('div');
     dropdown.className = 'profile-dropdown';
     dropdown.innerHTML = `
-        <a href="#" id="profileLink"><i class="fas fa-user"></i> Profile</a>
-        <a href="#" id="settingsLink"><i class="fas fa-cog"></i> Settings</a>
+        <div class="profile-username"><i class="fas fa-user"></i> ${currentUser ? currentUser.username : 'User'}</div>
         <a href="#" id="signOutLink"><i class="fas fa-sign-out-alt"></i> Sign out</a>
     `;
     
     document.querySelector('.profile-menu').appendChild(dropdown);
     
     // Add event listeners to dropdown items
-    document.getElementById('profileLink').addEventListener('click', (e) => {
-        e.preventDefault();
-        showNotification('Profile page coming soon!', 'info');
-        closeProfileMenu();
-    });
-    
-    document.getElementById('settingsLink').addEventListener('click', (e) => {
-        e.preventDefault();
-        showNotification('Settings panel coming soon!', 'info');
-        closeProfileMenu();
-    });
-    
     document.getElementById('signOutLink').addEventListener('click', (e) => {
         e.preventDefault();
         signOut();

@@ -19,11 +19,19 @@ class User(Base):
 
 class Repo(Base):
     __tablename__ = "repos"
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String)
     creator_id = Column(Integer)
     visibility = Column(String, default='public')
+    stars = Column(Integer, default=0)
+
+class Star(Base):
+    __tablename__ = "stars"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer)
+    repo_id = Column(Integer)
 
 class RepoMetadata(RepoBase):
     __tablename__ = "commit_history"

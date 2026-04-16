@@ -260,7 +260,7 @@ def list_repos(username: str, uuid: str, db: Session = Depends(get_database)):
     # Get repositories from database
     repos = db.query(models.Repo).filter(models.Repo.creator_id == user.id).all()
     
-    return {"repos": [{"name": repo.name, "visibility": repo.visibility} for repo in repos]}
+    return {"repos": [{"name": repo.name, "visibility": repo.visibility, "stars": repo.stars} for repo in repos]}
 
 
 @app.get("/public-repos")
@@ -277,9 +277,10 @@ def list_all_public_repos(db: Session = Depends(get_database)):
             result.append({
                 "name": repo.name,
                 "visibility": repo.visibility,
-                "username": creator.username
+                "username": creator.username,
+                "stars": repo.stars
             })
-    
+
     return {"repos": result}
 
 
@@ -633,6 +634,111 @@ def login(request: LoginRequest, db: Session = Depends(get_database)):
         "minecraft_username": user.minecraft_username,
         "uuid": user.uuid
     }
+
+@app.post("/repos/{username}/{repo_name}/star")
+def star_repo(username: str, repo_name: str, uuid: str, db: Session = Depends(get_database)):
+    """Star a repository - user can only star once"""
+    # Verify user exists
+    user = db.query(models.User).filter(models.User.uuid == uuid).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Find the repository owner
+    repo_owner = db.query(models.User).filter(models.User.username == username).first()
+    if not repo_owner:
+        raise HTTPException(status_code=404, detail="Repository owner not found")
+
+    # Find the repository
+    repo = db.query(models.Repo).filter(
+        and_(models.Repo.name == repo_name, models.Repo.creator_id == repo_owner.id)
+    ).first()
+
+    if not repo:
+        raise HTTPException(status_code=404, detail="Repository not found")
+
+    # Check if user already starred this repo
+    existing_star = db.query(models.Star).filter(
+        and_(models.Star.user_id == user.id, models.Star.repo_id == repo.id)
+    ).first()
+
+    if existing_star:
+        raise HTTPException(status_code=400, detail="You have already starred this repository")
+
+    # Create star record
+    new_star = models.Star(user_id=user.id, repo_id=repo.id)
+    db.add(new_star)
+
+    # Increment stars count
+    repo.stars = (repo.stars or 0) + 1
+    db.commit()
+
+    return {"status": "success", "stars": repo.stars, "starred": True}
+
+@app.delete("/repos/{username}/{repo_name}/star")
+def unstar_repo(username: str, repo_name: str, uuid: str, db: Session = Depends(get_database)):
+    """Unstar a repository - only if user has starred it"""
+    # Verify user exists
+    user = db.query(models.User).filter(models.User.uuid == uuid).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Find the repository owner
+    repo_owner = db.query(models.User).filter(models.User.username == username).first()
+    if not repo_owner:
+        raise HTTPException(status_code=404, detail="Repository owner not found")
+
+    # Find the repository
+    repo = db.query(models.Repo).filter(
+        and_(models.Repo.name == repo_name, models.Repo.creator_id == repo_owner.id)
+    ).first()
+
+    if not repo:
+        raise HTTPException(status_code=404, detail="Repository not found")
+
+    # Check if user has starred this repo
+    existing_star = db.query(models.Star).filter(
+        and_(models.Star.user_id == user.id, models.Star.repo_id == repo.id)
+    ).first()
+
+    if not existing_star:
+        raise HTTPException(status_code=400, detail="You have not starred this repository")
+
+    # Remove star record
+    db.delete(existing_star)
+
+    # Decrement stars count (minimum 0)
+    repo.stars = max((repo.stars or 0) - 1, 0)
+    db.commit()
+
+    return {"status": "success", "stars": repo.stars, "starred": False}
+
+@app.get("/repos/{username}/{repo_name}/starred")
+def check_starred(username: str, repo_name: str, uuid: str, db: Session = Depends(get_database)):
+    """Check if the current user has starred a repository"""
+    # Verify user exists
+    user = db.query(models.User).filter(models.User.uuid == uuid).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Find the repository owner
+    repo_owner = db.query(models.User).filter(models.User.username == username).first()
+    if not repo_owner:
+        raise HTTPException(status_code=404, detail="Repository owner not found")
+
+    # Find the repository
+    repo = db.query(models.Repo).filter(
+        and_(models.Repo.name == repo_name, models.Repo.creator_id == repo_owner.id)
+    ).first()
+
+    if not repo:
+        raise HTTPException(status_code=404, detail="Repository not found")
+
+    # Check if user has starred this repo
+    existing_star = db.query(models.Star).filter(
+        and_(models.Star.user_id == user.id, models.Star.repo_id == repo.id)
+    ).first()
+
+    return {"starred": existing_star is not None}
 
 if __name__ == "__main__":
 
