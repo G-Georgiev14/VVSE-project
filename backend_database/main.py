@@ -35,14 +35,22 @@ class CheckRequest(BaseModel):
 
 app = FastAPI()
 
+# Simple CORS configuration
 app.add_middleware(
-    CORSMiddleware, 
-    allow_origins=["*"],
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins for development
+    allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
 )
 
-database.init_global_database()
+try:
+    print("Initializing database...")
+    database.init_global_database()
+    print("Database initialized successfully!")
+except Exception as e:
+    print(f"Database initialization error: {e}")
+    raise
 
 
 def generate_hash(username: str, password: str) -> str:
@@ -55,6 +63,10 @@ def generate_hash(username: str, password: str) -> str:
 @app.get("/db-check")
 def db_check():
     return {"server": True}
+
+@app.get("/test")
+def test_endpoint():
+    return {"message": "Server is working correctly", "cors": "enabled"}
 
 
 def get_database():

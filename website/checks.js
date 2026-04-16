@@ -310,31 +310,62 @@ export async function checkIfUserExists(form) {
 	};
 
 	try {
-		const response = await fetch(`${DATABASE_API_URL}/users`, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify({
-				username: userData.username,
-				email: userData.email,
-				password: userData.password,
-				minecraft_username: userData.mcUsername
-			})
-		});
+		const requestData = {
+			username: userData.username,
+			email: userData.email,
+			password: userData.password,
+			minecraft_username: userData.mcUsername
+		};
+		
+		console.log('Sending data to server:', requestData);
+		
+		let response;
+		let retries = 3;
+		
+		// Retry mechanism for server connection issues
+		for (let i = 0; i < retries; i++) {
+			try {
+				response = await fetch(`${DATABASE_API_URL}/users`, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify(requestData)
+				});
+				
+				// If successful, break out of retry loop
+				if (response.ok) {
+					break;
+				}
+				
+				// If not successful and not last retry, wait and try again
+				if (i < retries - 1) {
+					console.log(`Retry ${i + 1}/${retries - 1} - waiting 1 second...`);
+					await new Promise(resolve => setTimeout(resolve, 1000));
+				}
+			} catch (fetchError) {
+				console.error(`Fetch attempt ${i + 1} failed:`, fetchError);
+				if (i < retries - 1) {
+					console.log(`Retry ${i + 1}/${retries - 1} - waiting 1 second...`);
+					await new Promise(resolve => setTimeout(resolve, 1000));
+				} else {
+					throw fetchError;
+				}
+			}
+		}
+
+		console.log('Server response status:', response.status);
+		console.log('Server response headers:', response.headers);
 
 		const result = await response.json();
+		console.log('Server response body:', result);
 
 		if (response.ok && result.status === 'success') {
-			displayMessage("success", "Registration successful! Redirecting to login...");
-			
-			// Redirect to login after 2 seconds
-			setTimeout(() => {
-				window.location.href = '../login/login.html';
-			}, 2000);
-			
+			console.log('=== REGISTRATION SUCCESSFUL ===');
+			console.log('Server response:', result);
 			return true;
 		} else {
+			console.log('Registration failed with details:', result);
 			displayMessage("error", result.detail || "Registration failed");
 			return false;
 		}
