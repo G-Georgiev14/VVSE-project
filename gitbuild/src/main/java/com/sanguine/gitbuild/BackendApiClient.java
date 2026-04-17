@@ -103,8 +103,8 @@ public class BackendApiClient {
     }
 
     // Repository operations
-    public static ApiResponse createRepo(String username, String repoName, String uuid) {
-        String endpoint = String.format("/repos/%s?repo_name=%s&uuid=%s", username, repoName, uuid);
+    public static ApiResponse createRepo(String username, String repoName, String uuid, String visibility) {
+        String endpoint = String.format("/repos/%s?repo_name=%s&uuid=%s&visibility=%s", username, repoName, uuid, visibility);
         return post(endpoint, new HashMap<>());
     }
 
@@ -131,6 +131,10 @@ public class BackendApiClient {
 
     public static ApiResponse getCommitBlocks(String username, String repoName, String commitHash) {
         return get(String.format("/repos/%s/%s/commits/%s/blocks", username, repoName, commitHash));
+    }
+
+    public static ApiResponse getHeadBlocks(String username, String repoName) {
+        return get(String.format("/repos/%s/%s/head-blocks", username, repoName));
     }
 
     public static ApiResponse hardReset(String username, String repoName, String targetHash) {

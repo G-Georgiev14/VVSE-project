@@ -328,6 +328,24 @@ public class PlayerSession {
                 loadClonePreviewFromJson(json.getAsJsonObject("clonePreview"));
             }
 
+            // Load staging area
+            if (json.has("stagingArea")) {
+                stagingArea.clear();
+                JsonArray stagingArray = json.getAsJsonArray("stagingArea");
+                for (JsonElement elem : stagingArray) {
+                    JsonObject changeJson = elem.getAsJsonObject();
+                    BlockPos pos = new BlockPos(
+                        changeJson.get("x").getAsInt(),
+                        changeJson.get("y").getAsInt(),
+                        changeJson.get("z").getAsInt()
+                    );
+                    BlockState oldState = blockStateFromString(changeJson.get("oldState").getAsString());
+                    BlockState newState = blockStateFromString(changeJson.get("newState").getAsString());
+                    ChangeType type = ChangeType.valueOf(changeJson.get("type").getAsString());
+                    stagingArea.put(pos, new BlockChange(pos, oldState, newState, type));
+                }
+            }
+
             // Load auto-detection setting (default to true if not present)
             if (json.has("autoDetectionEnabled")) {
                 autoDetectionEnabled = json.get("autoDetectionEnabled").getAsBoolean();
@@ -418,6 +436,22 @@ public class PlayerSession {
         if (clonePreviewJson != null) {
             json.add("clonePreview", clonePreviewJson);
         }
+
+        // Save staging area
+        JsonArray stagingArray = new JsonArray();
+        for (Map.Entry<BlockPos, BlockChange> entry : stagingArea.entrySet()) {
+            JsonObject changeJson = new JsonObject();
+            BlockPos pos = entry.getKey();
+            BlockChange change = entry.getValue();
+            changeJson.addProperty("x", pos.getX());
+            changeJson.addProperty("y", pos.getY());
+            changeJson.addProperty("z", pos.getZ());
+            changeJson.addProperty("oldState", blockStateToString(change.oldState));
+            changeJson.addProperty("newState", blockStateToString(change.newState));
+            changeJson.addProperty("type", change.type.name());
+            stagingArray.add(changeJson);
+        }
+        json.add("stagingArea", stagingArray);
 
         // Save auto-detection setting
         json.addProperty("autoDetectionEnabled", autoDetectionEnabled);
@@ -629,5 +663,25 @@ public class PlayerSession {
             return null;
         }
         return new File(PENDING_COMMITS_DIR, username + "/" + currentRepo);
+    }
+
+    // BlockState serialization helpers
+    private String blockStateToString(BlockState state) {
+        if (state == null) return "null";
+        return net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
+    }
+
+    private BlockState blockStateFromString(String str) {
+        if (str == null || str.equals("null")) return null;
+        try {
+            for (var entry : net.minecraft.core.registries.BuiltInRegistries.BLOCK.entrySet()) {
+                if (entry.getKey().toString().equals(str)) {
+                    return entry.getValue().defaultBlockState();
+                }
+            }
+        } catch (Exception e) {
+            GitBuildMod.LOGGER.warn("Failed to parse block state: {}", str);
+        }
+        return null;
     }
 }

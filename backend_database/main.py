@@ -153,30 +153,56 @@ def create_commit(username: str,
 
 @app.post("/users/{username}/{repo_name}/reset-hard")
 def reset_hard(username: str,
-               repo_name: str, 
+               repo_name: str,
                target_hash: str):
-    
-    meta_database = database.get_repo_metadata_session(username, repo_name)
 
-    target = meta_database.query(models.RepoMetadata).filter_by(commit_hash=target_hash).first()
-    if not target:
-        raise HTTPException(status_code=404, detail="Commit not found")
-    
-    to_delete = meta_database.query(models.RepoMetadata).filter(models.RepoMetadata.time_stamp > target.time_stamp).all()
+    meta_database = None
+    try:
+        meta_database = database.get_repo_metadata_session(username, repo_name)
 
-    for item in to_delete:
-        file_path = os.path.join(database.DATA_ROOT, username, repo_name, f"{item.commit_hash}.db")
-        if os.path.exists(file_path):
-            os.remove(file_path)
-        meta_database.delete(item)
-    
-    meta_database.query(models.RepoMetadata).update({models.RepoMetadata.is_active: False})
-    target.is_active = True
+        target = meta_database.query(models.RepoMetadata).filter(models.RepoMetadata.commit_hash.like(f"{target_hash}%")).first()
+        if not target:
+            if meta_database:
+                try:
+                    meta_database.close()
+                except:
+                    pass
+            raise HTTPException(status_code=404, detail="Commit not found")
 
-    meta_database.commit()
-    meta_database.close()
+        to_delete = meta_database.query(models.RepoMetadata).filter(models.RepoMetadata.time_stamp > target.time_stamp).all()
 
-    return {"message": f"Hard reset to {target_hash}"}
+        for item in to_delete:
+            file_path = os.path.join(database.DATA_ROOT, username, repo_name, f"{item.commit_hash}.db")
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            meta_database.delete(item)
+
+        meta_database.query(models.RepoMetadata).update({models.RepoMetadata.is_active: False})
+        target.is_active = True
+
+        meta_database.commit()
+        result_hash = target.commit_hash
+
+        try:
+            meta_database.close()
+        except:
+            pass  # Connection close errors don't affect the successful reset
+
+        return {"message": f"Hard reset to {result_hash}"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        print(f"ERROR in reset_hard: {e}")
+        traceback.print_exc()
+        if meta_database:
+            try:
+                meta_database.rollback()
+                meta_database.close()
+            except:
+                pass
+        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
 
 
 @app.get("/users/{username}/{repo_name}/log")
@@ -203,46 +229,71 @@ def get_log(username: str, repo_name: str):
 @app.post("/repos/{username}")
 def create_repo(username: str, repo_name: str, uuid: str, visibility: str = 'public', db: Session = Depends(get_database)):
     """Create a new repository"""
-    # Verify user exists and owns the repository
-    user_check = db.query(exists().where(and_(models.User.uuid == uuid, models.User.username == username))).scalar()
-    if not user_check:
-        raise HTTPException(status_code=404, detail="User doesn't exist")
-    
-    # Get the user ID
-    user = db.query(models.User).filter(models.User.uuid == uuid).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # Check if repository already exists
-    existing_repo = db.query(models.Repo).filter(and_(
-        models.Repo.name == repo_name,
-        models.Repo.creator_id == user.id
-    )).first()
-    
-    if existing_repo:
-        raise HTTPException(status_code=400, detail="Repository already exists")
-    
-    # Create repository record in database
-    new_repo = models.Repo(
-        name=repo_name,
-        creator_id=user.id,
-        visibility=visibility
-    )
-    
-    db.add(new_repo)
-    db.commit()
-    db.refresh(new_repo)
-    
-    # Create repo directory structure
+    import traceback
     import os
-    repo_path = os.path.join(database.DATA_ROOT, username, repo_name)
-    os.makedirs(repo_path, exist_ok=True)
     
-    # Initialize metadata database
-    meta_db = database.get_repo_metadata_session(username, repo_name)
-    meta_db.close()
-    
-    return {"status": "success", "repo_name": repo_name, "message": "Repository initialized", "repo_id": new_repo.id}
+    try:
+        print(f"[create_repo] Starting: username={username}, repo_name={repo_name}, uuid={uuid}, visibility={visibility}")
+        
+        # Validate visibility parameter
+        if visibility not in ['public', 'private']:
+            raise HTTPException(status_code=400, detail=f"Invalid visibility: {visibility}. Must be 'public' or 'private'")
+        
+        # Verify user exists and owns the repository
+        user_check = db.query(exists().where(and_(models.User.uuid == uuid, models.User.username == username))).scalar()
+        print(f"[create_repo] User check result: {user_check}")
+        if not user_check:
+            raise HTTPException(status_code=404, detail="User doesn't exist")
+        
+        # Get the user ID
+        user = db.query(models.User).filter(models.User.uuid == uuid).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        print(f"[create_repo] Found user: id={user.id}")
+        
+        # Check if repository already exists
+        existing_repo = db.query(models.Repo).filter(and_(
+            models.Repo.name == repo_name,
+            models.Repo.creator_id == user.id
+        )).first()
+        
+        if existing_repo:
+            raise HTTPException(status_code=400, detail="Repository already exists")
+        
+        # Create repository record in database
+        new_repo = models.Repo(
+            name=repo_name,
+            creator_id=user.id,
+            visibility=visibility
+        )
+        
+        db.add(new_repo)
+        db.commit()
+        db.refresh(new_repo)
+        print(f"[create_repo] Created repo record: id={new_repo.id}")
+        
+        # Create repo directory structure
+        repo_path = os.path.join(database.DATA_ROOT, username, repo_name)
+        print(f"[create_repo] Creating directory: {repo_path}")
+        print(f"[create_repo] DATA_ROOT: {database.DATA_ROOT}, exists={os.path.exists(database.DATA_ROOT)}")
+        os.makedirs(repo_path, exist_ok=True)
+        print(f"[create_repo] Directory created/exists: {os.path.exists(repo_path)}")
+        
+        # Initialize metadata database
+        print(f"[create_repo] Initializing metadata database...")
+        meta_db = database.get_repo_metadata_session(username, repo_name)
+        meta_db.close()
+        print(f"[create_repo] Metadata database initialized successfully")
+        
+        return {"status": "success", "repo_name": repo_name, "message": "Repository initialized", "repo_id": new_repo.id}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_msg = f"Error creating repository: {str(e)}"
+        print(f"[create_repo] ERROR: {error_msg}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=error_msg)
 
 
 @app.get("/repos/{username}")
