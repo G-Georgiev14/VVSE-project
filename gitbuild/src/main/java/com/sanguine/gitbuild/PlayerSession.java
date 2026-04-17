@@ -394,7 +394,7 @@ public class PlayerSession {
                 }
 
                 BuildInstance.CommitData commit = new BuildInstance.CommitData(
-                    commitHash, commitName, message, timestamp, blocks
+                    commitHash, commitName, message, timestamp, 0, blocks // Use UTC (offset 0) for legacy commits
                 );
                 defaultInstance.savePendingCommit(commit);
 

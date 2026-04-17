@@ -117,11 +117,12 @@ public class BackendApiClient {
     }
 
     // Commit operations
-    public static ApiResponse createCommit(String username, String repoName, String uuid, 
-                                              String commitName, String commitHash, 
-                                              String message, List<BlockData> blocks) {
-        String endpoint = String.format("/users/%s/%s/commit?uuid=%s&commit_name=%s&commit_hash=%s&message=%s",
-                username, repoName, uuid, commitName, commitHash, message);
+    public static ApiResponse createCommit(String username, String repoName, String uuid,
+                                              String commitName, String commitHash,
+                                              String message, long timestamp, int timezoneOffset,
+                                              List<BlockData> blocks) {
+        String endpoint = String.format("/users/%s/%s/commit?uuid=%s&commit_name=%s&commit_hash=%s&message=%s&timestamp=%d&timezone_offset=%d",
+                username, repoName, uuid, commitName, commitHash, message, timestamp, timezoneOffset);
         return post(endpoint, blocks);
     }
 

@@ -27,6 +27,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.security.MessageDigest;
+import java.time.ZoneId;
 import java.util.*;
 
 public class GitCommand {
@@ -1060,12 +1061,16 @@ public class GitCommand {
         String commitName = "commit-" + commitHash.substring(0, 8);
 
         // Save commit locally (do not send to backend yet)
+        // Get local timezone offset in minutes from UTC
+        int timezoneOffset = ZoneId.systemDefault().getRules().getOffset(java.time.Instant.now()).getTotalSeconds() / 60;
+
         // Convert to relative blocks for instance storage
         CommitData pendingCommit = CommitData.fromAbsolute(
             commitHash,
             commitName,
             message,
             System.currentTimeMillis(),
+            timezoneOffset,
             allBlocks,
             session.getCurrentInstance().getAnchorPos()
         );
@@ -2023,6 +2028,8 @@ public class GitCommand {
                 commit.commitName,
                 commit.commitHash,
                 commit.message,
+                commit.timestamp,
+                commit.timezoneOffset,
                 commit.toAbsoluteBlocks(currentInstance.getAnchorPos())
             );
 

@@ -57,6 +57,25 @@ async function checkAuthStatus() {
     }
 }
 
+function formatRelativeTime(dateString) {
+    if (!dateString) return 'Never';
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+
+    if (seconds < 60) return 'just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days} day${days !== 1 ? 's' : ''} ago`;
+    const months = Math.floor(days / 30);
+    if (months < 12) return `${months} month${months !== 1 ? 's' : ''} ago`;
+    const years = Math.floor(months / 12);
+    return `${years} year${years !== 1 ? 's' : ''} ago`;
+}
+
 async function loadUserRepositories() {
     if (!currentUser) return;
 
@@ -70,11 +89,16 @@ async function loadUserRepositories() {
             userRepositories = await Promise.all(repoNames.map(async (repo) => {
                 // Fetch commit count for each repository
                 let commitCount = 0;
+                let latestTimestamp = null;
                 try {
                     const commitsResponse = await fetch(`${API_BASE_URL}/users/${currentUser.username}/${repo.name}/log`);
                     if (commitsResponse.ok) {
                         const commits = await commitsResponse.json();
                         commitCount = commits.length;
+                        // Get the most recent commit timestamp (commits are ordered by time_stamp desc)
+                        if (commits.length > 0 && commits[0].time_stamp) {
+                            latestTimestamp = commits[0].time_stamp;
+                        }
                     }
                 } catch (error) {
                     console.error(`Failed to load commits for ${repo.name}:`, error);
@@ -97,7 +121,7 @@ async function loadUserRepositories() {
                     description: `Minecraft build repository`,
                     visibility: repo.visibility || 'public',
                     language: 'Minecraft',
-                    updated: 'Recently',
+                    updated: formatRelativeTime(latestTimestamp),
                     commits: commitCount,
                     stars: repo.stars || 0,
                     blocks: blockCount

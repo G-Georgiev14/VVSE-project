@@ -41,6 +41,7 @@ class RepoMetadata(RepoBase):
     commit_hash = Column(String, unique=True)
     message = Column(String)
     time_stamp = Column(DateTime, default=datetime.datetime.utcnow)
+    timezone_offset = Column(Integer, default=0)  # Offset in minutes from UTC
     is_active = Column(Boolean, default=False)
 
 class Commit(CommitBase):

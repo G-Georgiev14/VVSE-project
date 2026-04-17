@@ -18,23 +18,25 @@ public class BuildInstance {
         public String commitName;
         public String message;
         public long timestamp;
+        public int timezoneOffset; // Offset in minutes from UTC
         public List<RelativeBlockData> blocks;
 
-        public CommitData(String commitHash, String commitName, String message, long timestamp, List<RelativeBlockData> blocks) {
+        public CommitData(String commitHash, String commitName, String message, long timestamp, int timezoneOffset, List<RelativeBlockData> blocks) {
             this.commitHash = commitHash;
             this.commitName = commitName;
             this.message = message;
             this.timestamp = timestamp;
+            this.timezoneOffset = timezoneOffset;
             this.blocks = blocks;
         }
 
-        public static CommitData fromAbsolute(String commitHash, String commitName, String message, long timestamp,
+        public static CommitData fromAbsolute(String commitHash, String commitName, String message, long timestamp, int timezoneOffset,
                                                List<BlockData> absoluteBlocks, BlockPos anchor) {
             List<RelativeBlockData> relativeBlocks = new ArrayList<>();
             for (BlockData block : absoluteBlocks) {
                 relativeBlocks.add(RelativeBlockData.fromAbsolute(block, anchor));
             }
-            return new CommitData(commitHash, commitName, message, timestamp, relativeBlocks);
+            return new CommitData(commitHash, commitName, message, timestamp, timezoneOffset, relativeBlocks);
         }
 
         public List<BlockData> toAbsoluteBlocks(BlockPos anchor) {
@@ -196,6 +198,7 @@ public class BuildInstance {
             commitJson.addProperty("commitName", commit.commitName);
             commitJson.addProperty("message", commit.message);
             commitJson.addProperty("timestamp", commit.timestamp);
+            commitJson.addProperty("timezoneOffset", commit.timezoneOffset);
 
             JsonArray blocksArray = new JsonArray();
             for (RelativeBlockData block : commit.blocks) {
@@ -235,6 +238,7 @@ public class BuildInstance {
                 String commitName = commitJson.get("commitName").getAsString();
                 String message = commitJson.get("message").getAsString();
                 long timestamp = commitJson.get("timestamp").getAsLong();
+                int timezoneOffset = commitJson.has("timezoneOffset") ? commitJson.get("timezoneOffset").getAsInt() : 0;
 
                 List<RelativeBlockData> blocks = new ArrayList<>();
                 JsonArray blocksArray = commitJson.getAsJsonArray("blocks");
@@ -249,7 +253,7 @@ public class BuildInstance {
                     ));
                 }
 
-                instance.pendingCommits.add(new CommitData(commitHash, commitName, message, timestamp, blocks));
+                instance.pendingCommits.add(new CommitData(commitHash, commitName, message, timestamp, timezoneOffset, blocks));
             }
         }
 

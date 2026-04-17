@@ -1,6 +1,7 @@
 import uvicorn
 import os
 import hashlib
+import datetime
 from fastapi import FastAPI, Depends, HTTPException, Body
 from sqlalchemy import exists, and_
 from sqlalchemy.orm import Session
@@ -112,19 +113,21 @@ def create_user(user_data: UserCreate,
 
 @app.post("/users/{username}/{repo_name}/commit")
 def create_commit(username: str,
-                  uuid: str, 
+                  uuid: str,
                   repo_name: str,
-                  commit_name: str, 
+                  commit_name: str,
                   commit_hash: str,
-                  message: str, 
+                  message: str,
+                  timestamp: int = None,
+                  timezone_offset: int = 0,
                   blocks: List[BlockSchema] = Body(...),
                   db: Session = Depends(get_database)):
-    
+
     user_check = db.query(exists().where(and_(models.User.uuid == uuid, models.User.username == username))).scalar()
 
     if not user_check:
         raise HTTPException(status_code=404, detail="User doesn't exist")
-    
+
     commit_database = database.get_commit_database_session(username, repo_name, commit_hash)
 
     new_block = [models.Commit(**b.model_dump()) for b in blocks]
@@ -136,10 +139,20 @@ def create_commit(username: str,
 
     meta_database.query(models.RepoMetadata).update({models.RepoMetadata.is_active:False})
 
+    # Calculate local timestamp from UTC timestamp + timezone offset
+    if timestamp:
+        # timestamp is in milliseconds, convert to seconds and add timezone offset
+        local_timestamp = timestamp / 1000 + (timezone_offset * 60)
+        commit_time = datetime.datetime.utcfromtimestamp(local_timestamp)
+    else:
+        commit_time = datetime.datetime.utcnow()
+
     new_history = models.RepoMetadata(
         commit_name = commit_name,
         commit_hash = commit_hash,
         message = message,
+        time_stamp = commit_time,
+        timezone_offset = timezone_offset,
         is_active = True
     )
 
@@ -218,6 +231,7 @@ def get_log(username: str, repo_name: str):
             "commit_hash": h.commit_hash,
             "message": h.message,
             "time_stamp": h.time_stamp.isoformat() if h.time_stamp else None,
+            "timezone_offset": h.timezone_offset if h.timezone_offset else 0,
             "is_active": h.is_active
         }
         for h in history
