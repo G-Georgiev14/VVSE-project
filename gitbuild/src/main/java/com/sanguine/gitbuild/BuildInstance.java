@@ -97,7 +97,41 @@ public class BuildInstance {
     }
 
     public static String generateInstanceId(String worldId, String dimensionId, BlockPos anchor) {
-        return worldId + "_" + dimensionId.replace(":", "_") + "_" + anchor.getX() + "_" + anchor.getY() + "_" + anchor.getZ();
+        // Parse dimension ID from ResourceKey format: ResourceKey[minecraft:dimension / minecraft:overworld]
+        String dimName = parseDimensionName(dimensionId);
+        String dimPrefix = switch (dimName) {
+            case "overworld" -> "ow";
+            case "the_nether" -> "n";
+            case "the_end" -> "end";
+            default -> dimName.replace(":", "_");
+        };
+        return dimPrefix + "_" + formatCoord(anchor.getX()) + "_" + 
+               formatCoord(anchor.getY()) + "_" + formatCoord(anchor.getZ());
+    }
+
+    private static String parseDimensionName(String dimensionId) {
+        // Handle ResourceKey[dimension / overworld] format
+        if (dimensionId.contains("/")) {
+            String afterSlash = dimensionId.substring(dimensionId.lastIndexOf("/") + 1).trim();
+            // Remove trailing ] if present
+            if (afterSlash.endsWith("]")) {
+                afterSlash = afterSlash.substring(0, afterSlash.length() - 1);
+            }
+            // Remove minecraft: prefix
+            if (afterSlash.startsWith("minecraft:")) {
+                afterSlash = afterSlash.substring("minecraft:".length());
+            }
+            return afterSlash;
+        }
+        // Handle plain format: minecraft:overworld
+        if (dimensionId.startsWith("minecraft:")) {
+            return dimensionId.substring("minecraft:".length());
+        }
+        return dimensionId;
+    }
+
+    private static String formatCoord(int coord) {
+        return (coord >= 0 ? "p" : "n") + Math.abs(coord);
     }
 
     public String getInstanceId() { return instanceId; }

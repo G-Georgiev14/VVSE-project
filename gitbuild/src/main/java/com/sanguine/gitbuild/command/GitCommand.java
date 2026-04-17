@@ -12,6 +12,7 @@ import com.sanguine.gitbuild.*;
 import com.sanguine.gitbuild.BackendApiClient.ApiResponse;
 import com.sanguine.gitbuild.BackendApiClient.BlockData;
 import com.sanguine.gitbuild.BuildInstance.CommitData;
+import com.sanguine.gitbuild.BuildInstance.RelativeBlockData;
 import com.sanguine.gitbuild.PlayerSession.BlockChange;
 import com.sanguine.gitbuild.PlayerSession.ChangeType;
 import net.minecraft.commands.CommandSourceStack;
@@ -20,7 +21,6 @@ import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.Block;
@@ -72,8 +72,9 @@ public class GitCommand {
                         JsonObject c = commit.getAsJsonObject();
                         if (c.has("commit_hash")) {
                             String hash = c.get("commit_hash").getAsString();
+                            String shortHash = hash.substring(0, 8);
                             String message = c.has("message") ? c.get("message").getAsString() : "";
-                            builder.suggest(hash, () -> message);
+                            builder.suggest(shortHash, () -> message);
                         }
                     }
                 }
@@ -94,10 +95,21 @@ public class GitCommand {
                         )
                     )
                 )
+                // Help - available to all players
+                .then(Commands.literal("help")
+                    .executes(GitCommand::executeHelp)
+                )
                 // Repository management
                 .then(Commands.literal("init").requires(IS_AUTHENTICATED)
-                    .then(Commands.argument("name", StringArgumentType.word())
-                        .executes(GitCommand::executeInit)
+                    .then(Commands.literal("public")
+                        .then(Commands.argument("name", StringArgumentType.word())
+                            .executes(context -> executeInit(context, "public"))
+                        )
+                    )
+                    .then(Commands.literal("private")
+                        .then(Commands.argument("name", StringArgumentType.word())
+                            .executes(context -> executeInit(context, "private"))
+                        )
                     )
                 )
                 .then(Commands.literal("activate").requires(IS_AUTHENTICATED)
@@ -180,6 +192,12 @@ public class GitCommand {
                 )
                 .then(Commands.literal("diff").requires(IS_AUTHENTICATED)
                     .executes(GitCommand::executeDiff)
+                    .then(Commands.literal("head")
+                        .executes(GitCommand::executeDiffHead)
+                    )
+                    .then(Commands.argument("commit", StringArgumentType.word())
+                        .executes(GitCommand::executeDiffAgainstCommit)
+                    )
                     .then(Commands.literal("clear")
                         .executes(GitCommand::executeDiffClear)
                     )
@@ -250,13 +268,13 @@ public class GitCommand {
                     // /git instance highlight [id|nearest] - Show beacon beam at anchor
                     .then(Commands.literal("highlight")
                         .executes(GitCommand::executeInstanceHighlightNearest)
-                        .then(Commands.argument("id", StringArgumentType.word())
+                        .then(Commands.argument("id", StringArgumentType.greedyString())
                             .executes(GitCommand::executeInstanceHighlight)
                         )
                     )
                     // /git instance select <id> - Switch to instance
                     .then(Commands.literal("select")
-                        .then(Commands.argument("id", StringArgumentType.word())
+                        .then(Commands.argument("id", StringArgumentType.greedyString())
                             .executes(GitCommand::executeInstanceSelect)
                         )
                     )
@@ -350,6 +368,78 @@ public class GitCommand {
         session.updateInstanceContext(worldId, dimensionId, pos);
     }
 
+    // Help command - shows different content based on authentication status
+    private static int executeHelp(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = getPlayer(context);
+        PlayerSession session = SessionManager.getSession(player);
+        
+        StringBuilder help = new StringBuilder();
+        
+        if (!session.isAuthenticated()) {
+            // Unauthenticated help
+            help.append("\u00a76========== GitBuild Mod ==========\n");
+            help.append("\u00a77Welcome to GitBuild! This mod brings version control to your Minecraft builds.\n\n");
+            help.append("\u00a76Available Commands:\n");
+            help.append("  \u00a7e/git auth <username> [password]\u00a77 - Authenticate with the GitBuild server\n");
+            help.append("  \u00a7e/git help\u00a77 - Shows this help message\n\n");
+            help.append("\u00a77Authenticate to see all available commands for repository management.\n");
+        } else {
+            // Authenticated help - full command list
+            help.append("\u00a76========== GitBuild Mod - Full Command Reference ==========\n\n");
+            
+            help.append("\u00a76[Authentication]\n");
+            help.append("  \u00a7e/git auth <username> [password]\u00a77 - Authenticate with server\n");
+            
+            help.append("\u00a76[Repository]\n");
+            help.append("  \u00a7e/git init <public|private> <name>\u00a77 - Create new repository\n");
+            help.append("  \u00a7e/git activate <name>\u00a77 - Switch to repository\n");
+            help.append("  \u00a7e/git repoList\u00a77 - List your repositories\n");
+            help.append("  \u00a7e/git deactivate\u00a77 - Pause tracking on current repo\n");
+            
+            help.append("\u00a76[Staging]\n");
+            help.append("  \u00a7e/git add <from> [to] [hollow|outline]\u00a77 - Stage blocks\n");
+            help.append("  \u00a7e/git rm <from> [to] [hollow|outline]\u00a77 - Remove and stage\n");
+            help.append("  \u00a7e/git unstage <from> [to]\u00a77 - Unstage blocks\n");
+            help.append("  \u00a7e/git autoadd [on|off]\u00a77 - Toggle auto-staging additions\n");
+            help.append("  \u00a7e/git autorm [on|off]\u00a77 - Toggle auto-staging removals\n");
+            
+            help.append("\u00a76[Commit]\n");
+            help.append("  \u00a7e/git commit <message>\u00a77 - Commit staged changes\n");
+            help.append("  \u00a7e/git status\u00a77 - Show staged changes\n");
+            help.append("  \u00a7e/git diff [head|<commit>|clear]\u00a77 - Show differences\n");
+            help.append("  \u00a7e/git log\u00a77 - View commit history\n");
+            
+            help.append("\u00a76[History]\n");
+            help.append("  \u00a7e/git revert [hash]\u00a77 - Revert commit (new commit)\n");
+            help.append("  \u00a7e/git reset [hash]\u00a77 - Reset to commit (destructive)\n");
+            help.append("  \u00a7e/git push\u00a77 - Push commits to remote\n");
+            help.append("  \u00a7e/git pull <source>\u00a77 - Pull from remote repository\n");
+            
+            help.append("\u00a76[Clone/Build]\n");
+            help.append("  \u00a7e/git clone\u00a77 - Start clone preview\n");
+            help.append("  \u00a7e/git clone anchor\u00a77 - Set clone anchor\n");
+            help.append("  \u00a7e/git clone rotate <angle>\u00a77 - Rotate preview\n");
+            help.append("  \u00a7e/git clone confirm\u00a77 - Confirm clone (OP only)\n");
+            help.append("  \u00a7e/git clone cancel\u00a77 - Cancel clone preview\n");
+            
+            help.append("\u00a76[Instance]\n");
+            help.append("  \u00a7e/git instance list\u00a77 - List build instances\n");
+            help.append("  \u00a7e/git instance highlight [id]\u00a77 - Highlight instance\n");
+            help.append("  \u00a7e/git instance select <id>\u00a77 - Switch to instance\n");
+            help.append("  \u00a7e/git instance new [name]\u00a77 - Create new instance\n");
+            help.append("  \u00a7e/git instance info\u00a77 - Show current instance\n");
+            help.append("  \u00a7e/git instance clearhighlight\u00a77 - Remove highlights\n");
+            help.append("  \u00a7e/git instance autodetect [on|off]\u00a77 - Toggle auto-detection\n");
+            
+            help.append("\u00a76[Help]\n");
+            help.append("  \u00a7e/git help\u00a77 - Show this help message\n");
+        }
+        
+        final String message = help.toString();
+        context.getSource().sendSuccess(() -> Component.literal(message), false);
+        return 1;
+    }
+
     // Authentication
     private static int executeAuthNoPassword(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         ServerPlayer player = getPlayer(context);
@@ -405,22 +495,23 @@ public class GitCommand {
     }
 
     // Repository management
-    private static int executeInit(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+    private static int executeInit(CommandContext<CommandSourceStack> context, String visibility) throws CommandSyntaxException {
         ServerPlayer player = getPlayer(context);
         PlayerSession session = SessionManager.getSession(player);
         String repoName = StringArgumentType.getString(context, "name");
-        
+
         checkServerOnline(context.getSource());
         checkAuthenticated(session, context.getSource());
-        
-        ApiResponse response = BackendApiClient.createRepo(session.getUsername(), repoName, session.getUuid());
+
+        ApiResponse response = BackendApiClient.createRepo(session.getUsername(), repoName, session.getUuid(), visibility);
         if (response.success) {
             session.setCurrentRepo(repoName);
-            context.getSource().sendSuccess(() -> 
-                Component.literal("§aInitialized repository: " + repoName), false);
+            String visibilityLabel = visibility.equals("public") ? "§a[public]" : "§c[private]";
+            context.getSource().sendSuccess(() ->
+                Component.literal("§aInitialized repository: " + repoName + " " + visibilityLabel), false);
             return 1;
         }
-        
+
         context.getSource().sendFailure(Component.literal("§cFailed to create repo: " + response.message));
         return 0;
     }
@@ -461,6 +552,14 @@ public class GitCommand {
         int missingCount = 0;
         BlockState airState = net.minecraft.world.level.block.Blocks.AIR.defaultBlockState();
 
+        // Get current instance anchor - blocks are stored relative to this
+        BuildInstance currentInstance = session.getCurrentInstance();
+        if (currentInstance == null) {
+            // No instance yet - can't determine relative positions
+            return 0;
+        }
+        BlockPos anchor = currentInstance.getAnchorPos();
+
         // Get HEAD commit blocks
         ApiResponse logResponse = BackendApiClient.getLog(session.getUsername(), session.getCurrentRepo());
         if (logResponse.success && logResponse.data != null) {
@@ -485,27 +584,33 @@ public class GitCommand {
                         int x = block.get("x").getAsInt();
                         int y = block.get("y").getAsInt();
                         int z = block.get("z").getAsInt();
-                        BlockPos pos = new BlockPos(x, y, z);
+                        
+                        // Convert absolute commit position to relative (based on anchor)
+                        // Then convert relative back to absolute world position using current anchor
+                        BlockPos relativePos = new BlockPos(
+                            x - anchor.getX(),
+                            y - anchor.getY(),
+                            z - anchor.getZ()
+                        );
+                        BlockPos worldPos = currentInstance.toAbsolute(relativePos);
 
-                        // Check if block exists in world
-                        BlockState worldState = player.level().getBlockState(pos);
+                        // Check if block exists in world at the anchor-relative position
+                        BlockState worldState = player.level().getBlockState(worldPos);
                         String worldBlockName = BuiltInRegistries.BLOCK.getKey(worldState.getBlock()).toString();
 
                         if (!worldBlockName.equals(blockName)) {
-                            // Block is missing or different - add ghost block and stage as removed
+                            // Block is missing or different at this anchor-relative position
                             missingCount++;
 
-                            // Add ghost block so player can see where to build
+                            // Add ghost block at the world position (anchor-relative)
+                            // Particle visualization will be handled by GhostBlockManager
                             BlockState ghostState = parseBlockState(blockName);
                             if (ghostState != null) {
-                                GhostBlockManager.addGhostBlock(player.getUUID(), pos, ghostState);
-                                // Send ghost block to player
-                                ClientboundBlockUpdatePacket packet = new ClientboundBlockUpdatePacket(pos, ghostState);
-                                player.connection.send(packet);
+                                GhostBlockManager.addGhostBlock(player.getUUID(), worldPos, ghostState);
                             }
 
                             // Stage as removed (so placing it back will show no change)
-                            session.stageBlock(pos, ghostState, airState, PlayerSession.ChangeType.REMOVE);
+                            session.stageBlock(worldPos, ghostState, airState, PlayerSession.ChangeType.REMOVE);
                         }
                     }
                 }
@@ -829,6 +934,7 @@ public class GitCommand {
 
         // Get previous commit blocks (if any) for full snapshot mode
         List<BlockData> allBlocks = new ArrayList<>();
+        Set<String> existingPositions = new HashSet<>();
 
         // Load pending commits to build base snapshot
         List<CommitData> pendingCommits = session.getPendingCommitsForCurrent();
@@ -877,6 +983,7 @@ public class GitCommand {
                                     blockName,
                                     block.get("block_state").getAsString()
                                 ));
+                                existingPositions.add(posKey);
                             }
                         }
                     }
@@ -888,7 +995,6 @@ public class GitCommand {
         if (!pendingCommits.isEmpty()) {
             // Use the most recent pending commit as base
             CommitData lastPending = pendingCommits.get(pendingCommits.size() - 1);
-            Set<String> existingPositions = new HashSet<>();
 
             // Track which positions are already in our snapshot
             for (BlockData block : allBlocks) {
@@ -913,23 +1019,34 @@ public class GitCommand {
             }
         }
 
-        // Add staged changes (new/modified blocks)
+        // Add staged changes (new/modified/removed blocks)
         StringBuilder commitData = new StringBuilder();
         for (Map.Entry<BlockPos, BlockChange> entry : staged.entrySet()) {
             BlockPos pos = entry.getKey();
             BlockChange change = entry.getValue();
+
+            // Skip entries with null newState (can happen after deserialization)
+            if (change.newState == null) continue;
+
             String blockName = BuiltInRegistries.BLOCK.getKey(change.newState.getBlock()).toString();
 
-            // Skip if new state is AIR (block was removed)
-            if (blockName.equals("minecraft:air")) {
-                continue;
-            }
-
-            String blockState = change.newState.toString();
             // Convert relative position to absolute for storage in commit
             BlockPos absPos = session.getCurrentInstance().toAbsolute(pos);
-            allBlocks.add(new BlockData(absPos.getX(), absPos.getY(), absPos.getZ(), blockName, blockState));
-            commitData.append(pos.toString()).append(blockName);
+            String posKey = absPos.getX() + "," + absPos.getY() + "," + absPos.getZ();
+
+            if (blockName.equals("minecraft:air")) {
+                // Actually remove the block from the list (not just skip adding)
+                allBlocks.removeIf(b -> (b.x + "," + b.y + "," + b.z).equals(posKey));
+                existingPositions.remove(posKey);
+            } else {
+                // Add or replace the block
+                if (existingPositions.contains(posKey)) {
+                    allBlocks.removeIf(b -> (b.x + "," + b.y + "," + b.z).equals(posKey));
+                }
+                allBlocks.add(new BlockData(absPos.getX(), absPos.getY(), absPos.getZ(), blockName, change.newState.toString()));
+                existingPositions.add(posKey);
+                commitData.append(pos.toString()).append(blockName);
+            }
         }
 
         // Check for empty commit
@@ -1011,11 +1128,25 @@ public class GitCommand {
                     if (blocksResponse.success && blocksResponse.data != null) {
                         JsonArray prevBlocks = blocksResponse.data.getAsJsonArray();
                         GitBuildMod.LOGGER.warn("Status: prevBlocks.size={}", prevBlocks.size());
+                        
+                        // Get anchor for relative position calculation
+                        BuildInstance currentInstance = session.getCurrentInstance();
+                        BlockPos anchor = (currentInstance != null) ? currentInstance.getAnchorPos() : BlockPos.ZERO;
+                        
                         for (JsonElement element : prevBlocks) {
                             JsonObject block = element.getAsJsonObject();
-                            String posKey = block.get("x").getAsInt() + "," +
-                                          block.get("y").getAsInt() + "," +
-                                          block.get("z").getAsInt();
+                            int x = block.get("x").getAsInt();
+                            int y = block.get("y").getAsInt();
+                            int z = block.get("z").getAsInt();
+                            
+                            // Convert absolute commit position to anchor-relative
+                            BlockPos relativePos = new BlockPos(
+                                x - anchor.getX(),
+                                y - anchor.getY(),
+                                z - anchor.getZ()
+                            );
+                            String posKey = relativePos.getX() + "," + relativePos.getY() + "," + relativePos.getZ();
+                            
                             headBlocks.put(posKey, new HeadBlock(
                                 block.get("block_name").getAsString(),
                                 block.get("block_state").getAsString()
@@ -1024,6 +1155,25 @@ public class GitCommand {
                     }
                 }
             }
+        }
+
+        // Apply pending commits on top of HEAD (if any)
+        // This ensures status shows changes relative to the true base state including local commits
+        List<CommitData> pendingCommits = session.getPendingCommitsForCurrent();
+        if (!pendingCommits.isEmpty()) {
+            // Use the most recent pending commit as the base
+            CommitData lastPending = pendingCommits.get(pendingCommits.size() - 1);
+            for (RelativeBlockData block : lastPending.blocks) {
+                String posKey = block.rel_x + "," + block.rel_y + "," + block.rel_z;
+                // Skip air blocks (they represent removals)
+                if (block.block_name.equals("minecraft:air") || block.block_name.equals("air")) {
+                    headBlocks.remove(posKey);
+                } else {
+                    headBlocks.put(posKey, new HeadBlock(block.block_name, block.block_state));
+                }
+            }
+            GitBuildMod.LOGGER.warn("Status: Applied {} pending commits, base now has {} blocks", 
+                pendingCommits.size(), headBlocks.size());
         }
 
         // Get ghost blocks (loaded commit state) for comparison
@@ -1039,6 +1189,10 @@ public class GitCommand {
         for (Map.Entry<BlockPos, BlockChange> entry : staged.entrySet()) {
             BlockPos pos = entry.getKey();
             BlockChange change = entry.getValue();
+            
+            // Skip entries with null newState (can happen after deserialization)
+            if (change.newState == null) continue;
+            
             String posKey = pos.getX() + "," + pos.getY() + "," + pos.getZ();
             String blockName = BuiltInRegistries.BLOCK.getKey(change.newState.getBlock()).toString();
             String blockState = change.newState.toString();
@@ -1234,8 +1388,6 @@ public class GitCommand {
             ));
         }
 
-        // Get the current instance for coordinate conversion
-        BuildInstance currentInstance = session.getCurrentInstance();
 
         int newCount = 0;
         int deletedCount = 0;
@@ -1251,8 +1403,7 @@ public class GitCommand {
             String blockName = block.get("block_name").getAsString();
             String blockState = block.has("block_state") ? block.get("block_state").getAsString() : "";
 
-            BlockPos relPos = new BlockPos(x, y, z);
-            BlockPos absPos = (currentInstance != null) ? currentInstance.toAbsolute(relPos) : relPos;
+            BlockPos absPos = new BlockPos(x, y, z);  // Backend stores absolute coordinates
             BlockState headState = parseBlockState(blockName, blockState);
 
             if (prevBlockMap.containsKey(posKey)) {
@@ -1312,8 +1463,7 @@ public class GitCommand {
             if (!existsInHead) {
                 // Block was deleted - show red ghost
                 String blockState = block.has("block_state") ? block.get("block_state").getAsString() : "";
-                BlockPos relPos = new BlockPos(x, y, z);
-                BlockPos absPos = (currentInstance != null) ? currentInstance.toAbsolute(relPos) : relPos;
+                BlockPos absPos = new BlockPos(x, y, z);  // Backend stores absolute coordinates
                 BlockState prevState = parseBlockState(blockName, blockState);
                 if (prevState != null) {
                     GhostBlockManager.addDiffGhost(player,
@@ -1350,6 +1500,350 @@ public class GitCommand {
 
         GhostBlockManager.clearDiffGhosts(player);
         context.getSource().sendSuccess(() -> Component.literal("§aDiff visualization cleared"), false);
+        return 1;
+    }
+
+    // Diff visualization - compares current world state against HEAD (shows uncommitted changes)
+    private static int executeDiffHead(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = getPlayer(context);
+        PlayerSession session = SessionManager.getSession(player);
+
+        checkRepoActive(session, context.getSource());
+        checkServerOnline(context.getSource());
+
+        // Clear any existing diff ghosts
+        GhostBlockManager.clearDiffGhosts(player);
+
+        // Get HEAD commit blocks
+        ApiResponse headResponse = BackendApiClient.getHeadBlocks(session.getUsername(), session.getCurrentRepo());
+        if (!headResponse.success || headResponse.data == null) {
+            context.getSource().sendFailure(Component.literal("§cFailed to get HEAD commit blocks"));
+            return 0;
+        }
+
+        JsonObject headData = headResponse.data.getAsJsonObject();
+        String headHash = headData.get("commit_hash").getAsString();
+        String headMsg = headData.has("message") ? headData.get("message").getAsString() : "HEAD";
+        JsonArray headBlocks = headData.getAsJsonArray("blocks");
+
+        // Build map of HEAD blocks
+        Map<String, HeadBlock> headBlockMap = new HashMap<>();
+        for (JsonElement element : headBlocks) {
+            JsonObject block = element.getAsJsonObject();
+            String posKey = block.get("x").getAsInt() + "," +
+                          block.get("y").getAsInt() + "," +
+                          block.get("z").getAsInt();
+            headBlockMap.put(posKey, new HeadBlock(
+                block.get("block_name").getAsString(),
+                block.has("block_state") ? block.get("block_state").getAsString() : ""
+            ));
+        }
+
+        // Get current instance for coordinate conversion and bounds
+        BuildInstance currentInstance = session.getCurrentInstance();
+        if (currentInstance == null) {
+            context.getSource().sendFailure(Component.literal("§cNo active build instance"));
+            return 0;
+        }
+
+        // Scan current world blocks in the instance area
+        ServerLevel level = (ServerLevel) player.level();
+        BlockPos anchor = currentInstance.getAnchorPos();
+        int minX = anchor.getX();
+        int minY = anchor.getY();
+        int minZ = anchor.getZ();
+
+        // Determine bounds from HEAD blocks or use default size
+        int maxX = minX + 32;
+        int maxY = minY + 32;
+        int maxZ = minZ + 32;
+
+        for (JsonElement element : headBlocks) {
+            JsonObject block = element.getAsJsonObject();
+            int x = block.get("x").getAsInt();
+            int y = block.get("y").getAsInt();
+            int z = block.get("z").getAsInt();
+            maxX = Math.max(maxX, x);
+            maxY = Math.max(maxY, y);
+            maxZ = Math.max(maxZ, z);
+        }
+
+        int newCount = 0;
+        int deletedCount = 0;
+        int modifiedCount = 0;
+
+        // Scan world and compare against HEAD
+        for (int x = minX; x <= maxX; x++) {
+            for (int y = minY; y <= maxY; y++) {
+                for (int z = minZ; z <= maxZ; z++) {
+                    BlockPos worldPos = new BlockPos(x, y, z);
+                    BlockState worldState = level.getBlockState(worldPos);
+                    String worldBlockName = worldState.isAir() ? "minecraft:air" : level.getBlockState(worldPos).getBlock().toString();
+
+                    // Convert to relative position for comparison
+                    BlockPos relPos = currentInstance.toRelative(worldPos);
+                    String posKey = relPos.getX() + "," + relPos.getY() + "," + relPos.getZ();
+
+                    if (headBlockMap.containsKey(posKey)) {
+                        HeadBlock headBlock = headBlockMap.get(posKey);
+                        String headBlockName = headBlock.blockName;
+
+                        // Normalize world block name to match HEAD format
+                        if (worldBlockName.startsWith("Block{")) {
+                            worldBlockName = worldBlockName.substring(6, worldBlockName.length() - 1);
+                        }
+
+                        if (!worldBlockName.equals(headBlockName)) {
+                            // Modified - different block type
+                            if (!worldState.isAir() || !headBlockName.equals("minecraft:air")) {
+                                GhostBlockManager.addDiffGhost(player,
+                                    new GhostBlockManager.DiffGhost(worldPos, worldState, GhostBlockManager.DiffType.MODIFIED));
+                                modifiedCount++;
+                            }
+                        }
+                        // If identical, no diff needed
+                        headBlockMap.remove(posKey); // Mark as processed
+                    } else {
+                        // New block in world that wasn't in HEAD
+                        if (!worldState.isAir()) {
+                            GhostBlockManager.addDiffGhost(player,
+                                new GhostBlockManager.DiffGhost(worldPos, worldState, GhostBlockManager.DiffType.NEW));
+                            newCount++;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Remaining blocks in headBlockMap are deleted (in HEAD but not in world)
+        for (Map.Entry<String, HeadBlock> entry : headBlockMap.entrySet()) {
+            String posKey = entry.getKey();
+            HeadBlock headBlock = entry.getValue();
+
+            if (headBlock.blockName.equals("minecraft:air") || headBlock.blockName.equals("air")) {
+                continue;
+            }
+
+            String[] coords = posKey.split(",");
+            int x = Integer.parseInt(coords[0]);
+            int y = Integer.parseInt(coords[1]);
+            int z = Integer.parseInt(coords[2]);
+
+            BlockPos absPos = new BlockPos(x, y, z);  // Backend stores absolute coordinates
+            BlockState prevState = parseBlockState(headBlock.blockName, headBlock.blockState);
+
+            if (prevState != null) {
+                GhostBlockManager.addDiffGhost(player,
+                    new GhostBlockManager.DiffGhost(absPos, prevState, GhostBlockManager.DiffType.DELETED));
+                deletedCount++;
+            }
+        }
+
+        int total = newCount + deletedCount + modifiedCount;
+        if (total == 0) {
+            context.getSource().sendSuccess(() ->
+                Component.literal("§aNo uncommitted changes - world matches HEAD\n§7" +
+                    headHash.substring(0, 8) + " " + headMsg), false);
+        } else {
+            final int fNew = newCount;
+            final int fDel = deletedCount;
+            final int fMod = modifiedCount;
+            final String fHead = headHash.substring(0, 8);
+            context.getSource().sendSuccess(() ->
+                Component.literal("§aUncommitted changes vs HEAD (" + fHead + ")" +
+                    "\n§a" + fNew + " new§7, §c" + fDel + " deleted§7, §e" + fMod + " modified" +
+                    "\n§7Green = added in world, Red = removed from HEAD, Yellow = changed" +
+                    "\n§7Use /git diff clear to remove"), false);
+        }
+
+        return 1;
+    }
+
+    // Diff visualization - compares current world state against a specific commit
+    private static int executeDiffAgainstCommit(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = getPlayer(context);
+        PlayerSession session = SessionManager.getSession(player);
+
+        checkRepoActive(session, context.getSource());
+        checkServerOnline(context.getSource());
+
+        // Get the commit hash argument
+        String commitInput = StringArgumentType.getString(context, "commit");
+
+        // Clear any existing diff ghosts
+        GhostBlockManager.clearDiffGhosts(player);
+
+        // Get commit log to find the full hash from partial input
+        ApiResponse logResponse = BackendApiClient.getLog(session.getUsername(), session.getCurrentRepo());
+        if (!logResponse.success || logResponse.data == null) {
+            context.getSource().sendFailure(Component.literal("§cFailed to get commit log"));
+            return 0;
+        }
+
+        JsonArray commits = logResponse.data.getAsJsonArray();
+        String targetHash = null;
+        String targetMsg = null;
+
+        // Find matching commit by partial hash
+        for (JsonElement element : commits) {
+            JsonObject commit = element.getAsJsonObject();
+            String hash = commit.get("commit_hash").getAsString();
+            if (hash.startsWith(commitInput.toLowerCase())) {
+                targetHash = hash;
+                targetMsg = commit.has("message") ? commit.get("message").getAsString() : "unknown";
+                break;
+            }
+        }
+
+        if (targetHash == null) {
+            context.getSource().sendFailure(Component.literal("§cNo commit found matching '" + commitInput + "'"));
+            return 0;
+        }
+
+        // Make final copies for lambda usage
+        final String finalTargetHash = targetHash;
+        final String finalTargetMsg = targetMsg;
+
+        // Fetch target commit blocks
+        ApiResponse commitResponse = BackendApiClient.getCommitBlocks(
+            session.getUsername(), session.getCurrentRepo(), finalTargetHash);
+        if (!commitResponse.success || commitResponse.data == null) {
+            context.getSource().sendFailure(Component.literal("§cFailed to get commit blocks for " + targetHash.substring(0, 8)));
+            return 0;
+        }
+
+        JsonArray commitBlocks = commitResponse.data.getAsJsonArray();
+
+        // Build map of commit blocks
+        Map<String, HeadBlock> commitBlockMap = new HashMap<>();
+        for (JsonElement element : commitBlocks) {
+            JsonObject block = element.getAsJsonObject();
+            String posKey = block.get("x").getAsInt() + "," +
+                          block.get("y").getAsInt() + "," +
+                          block.get("z").getAsInt();
+            commitBlockMap.put(posKey, new HeadBlock(
+                block.get("block_name").getAsString(),
+                block.has("block_state") ? block.get("block_state").getAsString() : ""
+            ));
+        }
+
+        // Get current instance for coordinate conversion and bounds
+        BuildInstance currentInstance = session.getCurrentInstance();
+        if (currentInstance == null) {
+            context.getSource().sendFailure(Component.literal("§cNo active build instance"));
+            return 0;
+        }
+
+        // Scan current world blocks in the instance area
+        ServerLevel level = (ServerLevel) player.level();
+        BlockPos anchor = currentInstance.getAnchorPos();
+        int minX = anchor.getX();
+        int minY = anchor.getY();
+        int minZ = anchor.getZ();
+
+        // Determine bounds from commit blocks or use default size
+        int maxX = minX + 32;
+        int maxY = minY + 32;
+        int maxZ = minZ + 32;
+
+        for (JsonElement element : commitBlocks) {
+            JsonObject block = element.getAsJsonObject();
+            int x = block.get("x").getAsInt();
+            int y = block.get("y").getAsInt();
+            int z = block.get("z").getAsInt();
+            maxX = Math.max(maxX, x);
+            maxY = Math.max(maxY, y);
+            maxZ = Math.max(maxZ, z);
+        }
+
+        int newCount = 0;
+        int deletedCount = 0;
+        int modifiedCount = 0;
+
+        // Scan world and compare against commit
+        for (int x = minX; x <= maxX; x++) {
+            for (int y = minY; y <= maxY; y++) {
+                for (int z = minZ; z <= maxZ; z++) {
+                    BlockPos worldPos = new BlockPos(x, y, z);
+                    BlockState worldState = level.getBlockState(worldPos);
+                    String worldBlockName = worldState.isAir() ? "minecraft:air" : level.getBlockState(worldPos).getBlock().toString();
+
+                    // Convert to relative position for comparison
+                    BlockPos relPos = currentInstance.toRelative(worldPos);
+                    String posKey = relPos.getX() + "," + relPos.getY() + "," + relPos.getZ();
+
+                    if (commitBlockMap.containsKey(posKey)) {
+                        HeadBlock commitBlock = commitBlockMap.get(posKey);
+                        String commitBlockName = commitBlock.blockName;
+
+                        // Normalize world block name to match commit format
+                        if (worldBlockName.startsWith("Block{")) {
+                            worldBlockName = worldBlockName.substring(6, worldBlockName.length() - 1);
+                        }
+
+                        if (!worldBlockName.equals(commitBlockName)) {
+                            // Modified - different block type
+                            if (!worldState.isAir() || !commitBlockName.equals("minecraft:air")) {
+                                GhostBlockManager.addDiffGhost(player,
+                                    new GhostBlockManager.DiffGhost(worldPos, worldState, GhostBlockManager.DiffType.MODIFIED));
+                                modifiedCount++;
+                            }
+                        }
+                        // If identical, no diff needed
+                        commitBlockMap.remove(posKey); // Mark as processed
+                    } else {
+                        // New block in world that wasn't in commit
+                        if (!worldState.isAir()) {
+                            GhostBlockManager.addDiffGhost(player,
+                                new GhostBlockManager.DiffGhost(worldPos, worldState, GhostBlockManager.DiffType.NEW));
+                            newCount++;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Remaining blocks in commitBlockMap are deleted (in commit but not in world)
+        for (Map.Entry<String, HeadBlock> entry : commitBlockMap.entrySet()) {
+            String posKey = entry.getKey();
+            HeadBlock commitBlock = entry.getValue();
+
+            if (commitBlock.blockName.equals("minecraft:air") || commitBlock.blockName.equals("air")) {
+                continue;
+            }
+
+            String[] coords = posKey.split(",");
+            int x = Integer.parseInt(coords[0]);
+            int y = Integer.parseInt(coords[1]);
+            int z = Integer.parseInt(coords[2]);
+
+            BlockPos absPos = new BlockPos(x, y, z);  // Backend stores absolute coordinates
+            BlockState prevState = parseBlockState(commitBlock.blockName, commitBlock.blockState);
+
+            if (prevState != null) {
+                GhostBlockManager.addDiffGhost(player,
+                    new GhostBlockManager.DiffGhost(absPos, prevState, GhostBlockManager.DiffType.DELETED));
+                deletedCount++;
+            }
+        }
+
+        int total = newCount + deletedCount + modifiedCount;
+        if (total == 0) {
+            context.getSource().sendSuccess(() ->
+                Component.literal("§aNo differences - world matches commit\n§7" +
+                    finalTargetHash.substring(0, 8) + " " + finalTargetMsg), false);
+        } else {
+            final int fNew = newCount;
+            final int fDel = deletedCount;
+            final int fMod = modifiedCount;
+            final String fHash = finalTargetHash.substring(0, 8);
+            context.getSource().sendSuccess(() ->
+                Component.literal("§aWorld vs commit " + fHash + " (" + finalTargetMsg + ")" +
+                    "\n§a" + fNew + " new§7, §c" + fDel + " deleted§7, §e" + fMod + " modified" +
+                    "\n§7Green = added in world, Red = removed from commit, Yellow = changed" +
+                    "\n§7Use /git diff clear to remove"), false);
+        }
+
         return 1;
     }
 
@@ -1828,15 +2322,8 @@ public class GitCommand {
         // Clear ghost blocks from GhostBlockManager
         GhostBlockManager.clearClonePreviews(player);
 
-        // Restore real blocks at preview positions
-        Map<BlockPos, PlayerSession.ClonePreviewBlock> previewBlocks = session.getClonePreviewBlocks();
-        for (BlockPos pos : previewBlocks.keySet()) {
-            BlockState realState = player.level().getBlockState(pos);
-            ClientboundBlockUpdatePacket packet = new ClientboundBlockUpdatePacket(pos, realState);
-            player.connection.send(packet);
-        }
-
         // Clear session preview state
+        // Note: Particles stop automatically when cleared from GhostBlockManager
         session.clearClonePreview();
         session.saveInstances();
     }
@@ -1880,6 +2367,29 @@ public class GitCommand {
                 .findFirst()
                 .orElse(null) : null;
 
+        // If no source instance, calculate bounding box to make positions relative
+        int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE;
+        if (sourceInstance == null) {
+            for (JsonElement elem : blocks) {
+                JsonObject block = elem.getAsJsonObject();
+                String blockName = block.get("block_name").getAsString();
+                // Skip air blocks for bounding box calculation
+                if (blockName.equals("minecraft:air") || blockName.equals("air")) {
+                    continue;
+                }
+                int x = block.get("x").getAsInt();
+                int y = block.get("y").getAsInt();
+                int z = block.get("z").getAsInt();
+                minX = Math.min(minX, x);
+                minY = Math.min(minY, y);
+                minZ = Math.min(minZ, z);
+            }
+            // If no valid blocks found, default to 0
+            if (minX == Integer.MAX_VALUE) {
+                minX = minY = minZ = 0;
+            }
+        }
+
         Map<BlockPos, PlayerSession.ClonePreviewBlock> previewBlocks = new HashMap<>();
 
         for (JsonElement elem : blocks) {
@@ -1900,8 +2410,8 @@ public class GitCommand {
                 BlockPos absPos = new BlockPos(x, y, z);
                 relativePos = sourceInstance.toRelative(absPos);
             } else {
-                // Assume already relative or absolute - use as-is
-                relativePos = new BlockPos(x, y, z);
+                // Make relative to bounding box minimum so build appears at anchor
+                relativePos = new BlockPos(x - minX, y - minY, z - minZ);
             }
 
             // Apply rotation
@@ -1932,9 +2442,8 @@ public class GitCommand {
                     GhostBlockManager.ClonePreviewGhost ghost = new GhostBlockManager.ClonePreviewGhost(
                         targetPos,
                         ghostState,
-                        null, // Highlight state could be added
-                        isWrongBlock,
-                        blockName
+                        blockName,
+                        isWrongBlock
                     );
                     GhostBlockManager.addClonePreviewGhost(player, ghost);
                     GhostBlockManager.sendClonePreviewsToPlayer(player);
@@ -2016,20 +2525,23 @@ public class GitCommand {
         boolean autoDetect = session.isAutoDetectionEnabled();
         sb.append(autoDetect ? "§7Auto-detection: §aON §7(/git instance autodetect off to disable)\n" :
                               "§7Auto-detection: §cOFF §7(manual control enabled)\n");
+        sb.append("§7Use §6/git instance select <ID>§7 with the ID shown above\n");
 
         String currentInstanceId = session.getCurrentInstanceId();
 
         if (currentDimInstances.isEmpty()) {
             sb.append("§cNo instances in this dimension. Use §6/git instance new §cto create one.\n");
         } else {
-            int index = 1;
             for (BuildInstance instance : currentDimInstances) {
                 boolean isCurrent = instance.getInstanceId().equals(currentInstanceId);
                 double distance = instance.distanceToAnchor(playerPos);
                 BlockPos anchor = instance.getAnchorPos();
                 int pendingCount = instance.getPendingCommits().size();
 
-                sb.append(isCurrent ? "§2" : "§7").append("#").append(index).append(" ");
+                // Generate fresh compact ID for display
+                String compactId = BuildInstance.generateInstanceId(
+                    instance.getWorldId(), instance.getDimensionId(), anchor);
+                sb.append(isCurrent ? "§2" : "§7").append(compactId).append(" ");
                 sb.append("§f").append(formatPos(anchor)).append(" ");
                 sb.append(isCurrent ? "§2" : "§a").append(formatDistance(distance)).append(" away");
                 if (isCurrent) sb.append(" §2(current)");
@@ -2038,7 +2550,6 @@ public class GitCommand {
                 if (pendingCount > 0) {
                     sb.append("  §7Pending: ").append(pendingCount).append(" commits\n");
                 }
-                index++;
             }
         }
 
@@ -2296,34 +2807,14 @@ public class GitCommand {
 
     // Helper methods for instance management
     private static BuildInstance findInstanceById(PlayerSession session, ServerPlayer player, String idStr) {
-        String currentDimension = player.level().dimension().toString();
-        BlockPos playerPos = player.blockPosition();
-
-        // Get instances in current dimension sorted by distance
-        List<BuildInstance> sortedInstances = session.getAllInstances().stream()
-            .filter(i -> i.getDimensionId().equals(currentDimension))
-            .sorted(Comparator.comparingDouble(i -> i.distanceToAnchor(playerPos)))
-            .toList();
-
-        // Check if it's a numbered ID like #1, #2, etc.
-        if (idStr.startsWith("#")) {
-            try {
-                int index = Integer.parseInt(idStr.substring(1)) - 1; // Convert to 0-based
-                if (index >= 0 && index < sortedInstances.size()) {
-                    return sortedInstances.get(index);
-                }
-            } catch (NumberFormatException e) {
-                return null;
-            }
-        }
-
-        // Otherwise search by full instance ID
+        // Search by compact format ID only
         for (BuildInstance instance : session.getAllInstances()) {
-            if (instance.getInstanceId().equals(idStr)) {
+            String compactId = BuildInstance.generateInstanceId(
+                instance.getWorldId(), instance.getDimensionId(), instance.getAnchorPos());
+            if (compactId.equals(idStr)) {
                 return instance;
             }
         }
-
         return null;
     }
 

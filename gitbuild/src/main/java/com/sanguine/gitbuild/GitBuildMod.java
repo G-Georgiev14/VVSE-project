@@ -1,6 +1,4 @@
 package com.sanguine.gitbuild;
-
-import com.sanguine.gitbuild.command.GhostBlockCommand;
 import com.sanguine.gitbuild.command.GitCommand;
 import com.sanguine.gitbuild.command.PingCommand;
 import org.slf4j.Logger;
@@ -8,7 +6,6 @@ import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.bus.api.IEventBus;
@@ -36,7 +33,6 @@ public class GitBuildMod {
     @SubscribeEvent
     public void registerCommands(RegisterCommandsEvent event) {
         PingCommand.register(event.getDispatcher());
-        GhostBlockCommand.register(event.getDispatcher());
         GitCommand.register(event.getDispatcher());
     }
 
@@ -56,10 +52,8 @@ public class GitBuildMod {
                 // Check if there's a ghost block at this position (player is restoring)
                 if (GhostBlockManager.getGhostBlocks(player.getUUID()).containsKey(pos)) {
                     // Remove the ghost block - player has built here
+                    // Particles will stop rendering automatically
                     GhostBlockManager.removeGhostBlock(player.getUUID(), pos);
-                    // Send real block to player
-                    ClientboundBlockUpdatePacket packet = new ClientboundBlockUpdatePacket(pos, newState);
-                    player.connection.send(packet);
                 }
 
                 // If there was a staged entry (e.g., "removed"), unstage it first
