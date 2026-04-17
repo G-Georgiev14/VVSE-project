@@ -79,7 +79,19 @@ async function loadUserRepositories() {
                 } catch (error) {
                     console.error(`Failed to load commits for ${repo.name}:`, error);
                 }
-                
+
+                // Fetch blocks count for each repository
+                let blockCount = 0;
+                try {
+                    const blocksResponse = await fetch(`${API_BASE_URL}/repos/${currentUser.username}/${repo.name}/head-blocks`);
+                    if (blocksResponse.ok) {
+                        const data = await blocksResponse.json();
+                        blockCount = data.blocks ? data.blocks.length : 0;
+                    }
+                } catch (error) {
+                    console.error(`Failed to load blocks for ${repo.name}:`, error);
+                }
+
                 return {
                     name: repo.name,
                     description: `Minecraft build repository`,
@@ -87,7 +99,8 @@ async function loadUserRepositories() {
                     language: 'Minecraft',
                     updated: 'Recently',
                     commits: commitCount,
-                    stars: repo.stars || 0
+                    stars: repo.stars || 0,
+                    blocks: blockCount
                 };
             }));
         } else {
@@ -812,9 +825,6 @@ function createCloneModal(repoName, username) {
                 <button class="btn btn-secondary" id="cancelClone">
                     <i class="fas fa-times"></i> Cancel
                 </button>
-                <button class="btn btn-primary" id="confirmClone">
-                    <i class="fas fa-download"></i> Clone Repository
-                </button>
             </div>
         </div>
     `;
@@ -823,7 +833,6 @@ function createCloneModal(repoName, username) {
 
 function setupCloneModal(modal) {
     const cancelBtn = modal.querySelector('#cancelClone');
-    const confirmBtn = modal.querySelector('#confirmClone');
     const tabBtns = modal.querySelectorAll('.tab-btn');
     const tabPanes = modal.querySelectorAll('.tab-pane');
     const previewName = modal.querySelector('#previewName');
@@ -846,15 +855,17 @@ function setupCloneModal(modal) {
         });
     });
     
-    // Checkbox interactions
+    // Checkbox interactions (only if elements exist)
     const includeCommits = modal.querySelector('#includeCommits');
     const includeBlocks = modal.querySelector('#includeBlocks');
     
-    [includeCommits, includeBlocks].forEach(checkbox => {
-        checkbox.addEventListener('change', () => {
-            updateClonePreview(modal);
+    if (includeCommits && includeBlocks) {
+        [includeCommits, includeBlocks].forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                updateClonePreview(modal);
+            });
         });
-    });
+    }
     
     cancelBtn.addEventListener('click', closeModal);
     
@@ -864,9 +875,6 @@ function setupCloneModal(modal) {
         }
     });
     
-    confirmBtn.addEventListener('click', () => {
-        performClone(modal);
-    });
     
     // Enhanced copy button functionality
     modal.addEventListener('click', (e) => {
